@@ -1,5 +1,8 @@
 # HALO — Current progress and active work
 
+> **15 September 2026 update.** The repository was cloned to `halo-claude`, placed under git, and every suite runnable on the founder's PC was re-executed and passes (see [HALO_PRODUCTION_READINESS.md](HALO_PRODUCTION_READINESS.md) for the exact matrix). Fixed today: CRLF conversion that broke every content hash and real-proof suite, two source directories excluded by ignore patterns, and a CI workflow that had never executed. Added today: history candles and cursor pagination (the 5,000-event failure is gone), creator-connected social accounts with X OAuth (automatic signup removed by decision), Akash workspace/inference deployment material with profile snapshots, a network activity feed, a unit-economics model, and two published website design directions awaiting the founder's choice. Owner-only gates are listed in that document's §4.
+
+
 **Updated:** 14 September 2026, 00:06 Berlin (UTC+02:00).
 
 **Current state:** An integrated local development product exists. It is **not yet a production service**. The earlier estimate was roughly **55% of the full production scope**; this is a rough engineering estimate, not a measured completion score.

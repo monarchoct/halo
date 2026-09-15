@@ -15,6 +15,12 @@ Read ../HALO_IMPLEMENTATION_SPEC.md, IMPLEMENTATION_STATUS.md and ../HALO_PUBLIC
 - npm run test:fork: read the public Robinhood RPC, then transact only on a local fork.
 - npm run test:runtime: egress, model-output, credential-isolation and artifact integrity boundaries.
 - npm run test:curve-oracle: verify the exact price integral, an atomic manipulation attempt and observation rollover.
+- npm run test:proof: real EZKL proof against the pinned Halo2 verifier using in-repo fixtures (test/fixtures/core-proof).
+- npm run test:native-buy: ETH → HALO → agent → child routing; add --robinhood-fork to run against a local fork of Robinhood mainnet.
+- npm run test:social-connect / test:x-oauth / test:secret-store: creator-signed account connection, X OAuth 2.0 PKCE adapter, encrypted secret store.
+- node test/akash-sdl.mjs, akash-console-client.mjs, profile-snapshot.mjs, workspace-entrypoint.mjs, browser-sandbox-gate.mjs: Akash deployment material (deploy/akash/README.md).
+- node test/market-candles.mjs and npm run test:market-history: candle aggregation and cursor pagination (services/api/MARKET_HISTORY.md).
+- node scripts/economics.mjs: break-even volume and lifespan for one agent from measured gas.
 - npm run test:settlement: fee isolation, guarded conversion, real proof-authorized work and the independent paid settlement worker.
 - npm run export:web: export current contract ABIs to the sibling web application.
 - npm run dev:stack: create the disposable local chain and read API. Requires compiled artifacts and the proving release. This chain is not persisted across restarts.
@@ -28,7 +34,7 @@ Read ../HALO_IMPLEMENTATION_SPEC.md, IMPLEMENTATION_STATUS.md and ../HALO_PUBLIC
 - npm run test:persistence: real PostgreSQL queue, lease and outbox checks in a uniquely named disposable database.
 - npm run test:scheduler-recovery: recover existing local agent receipts through PostgreSQL and publish them on the local IPFS peers.
 
-Set HALO_PYTHON to the Python 3.12 executable containing models/core-v1/requirements.txt and runtime/requirements.txt. The development fallback points at the workspace's work/halo-python environment. Wallet credentials are not forwarded to proposal/prover children.
+Checkouts must be byte-exact: .gitattributes forces LF (content hashes and the pinned verifier depend on it). Set HALO_PYTHON to the Python 3.12 executable containing models/core-v1/requirements.txt and runtime/requirements.txt. The development fallback points at the workspace's work/halo-python environment. Wallet credentials are not forwarded to proposal/prover children.
 
 Production worker, funding and deployment commands must use explicit Robinhood configuration, real gas-cost budgets, reviewed artifacts and operator-owned credentials. No mainnet submission path is present in the disposable development helpers.
 
