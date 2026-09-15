@@ -16,7 +16,7 @@ id -u halo >/dev/null 2>&1 || useradd --uid 1000 --create-home --shell /bin/bash
 usermod -aG docker halo
 ufw default deny incoming && ufw default allow outgoing && ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp && ufw --force enable
 mkdir -p /srv/halo/{config/postgres/init,secrets/social,backups}
-chown -R halo:halo /srv/halo && chmod 700 /srv/halo/secrets
+chown -R halo:halo /srv/halo && chmod 700 /srv/halo/secrets /srv/halo/secrets/social
 echo "HALO_DOMAIN=$DOMAIN" > /srv/halo/.env
 cat > /etc/cron.d/halo-backup <<'EOF'
 # Nightly logical backup of the HALO database; copy /srv/halo/backups off-host (object storage) for the restore drill.
