@@ -249,6 +249,7 @@ details.disclosure code { display: block; margin-top: 6px; }
 .market-head { display: grid; grid-template-columns: auto 1fr auto; gap: 20px; align-items: center; }
 .market-head .avatar { width: 96px; height: 96px; border-radius: 22px; overflow: hidden; border: 1px solid var(--line-strong); background: linear-gradient(160deg, var(--purple-2), var(--violet)); display: grid; place-items: center; font-family: var(--font-display); font-size: 2.6rem; }
 .market-head .avatar img { width: 100%; height: 100%; object-fit: cover; }
+.market-head .avatar > .card-art { width: 100%; height: 100%; aspect-ratio: auto; }
 .market-head .title { min-width: 0; display: grid; gap: 6px; }
 .market-head .title h1 { font-size: clamp(2rem, 4vw, 3.4rem); }
 .market-head .pair { font-size: 1rem; color: var(--text-2); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
