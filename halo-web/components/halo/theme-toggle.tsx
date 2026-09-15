@@ -4,8 +4,8 @@ import { useSyncExternalStore } from "react";
 const listeners = new Set<() => void>();
 function current(): "light" | "dark" {
   const root = document.documentElement;
-  if (root.dataset.theme === "dark" || root.dataset.theme === "light") return root.dataset.theme;
-  return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  // The photographic look is the default; "light" is the explicit bone-paper alternative.
+  return root.dataset.theme === "light" ? "light" : "dark";
 }
 function subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }
 export function setTheme(theme: "light" | "dark") {
@@ -15,7 +15,7 @@ export function setTheme(theme: "light" | "dark") {
 }
 
 export function ThemeToggle() {
-  const theme = useSyncExternalStore(subscribe, current, () => "light");
+  const theme = useSyncExternalStore(subscribe, current, () => "dark");
   const next = theme === "dark" ? "light" : "dark";
   return <button type="button" className="pill icon" onClick={() => setTheme(next)} aria-label={`Switch to ${next} theme`} title={`${next} theme`}>
     {theme === "dark"

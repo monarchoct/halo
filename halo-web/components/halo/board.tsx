@@ -46,7 +46,7 @@ export function Board({ view, onView, intro = false, parent }: { view: "agents" 
   const render = (items: typeof graduated) => <div className="grid-cards">{items.map((item, i) => "market" in item ? <AgentCard key={item.address} agent={item} haloSymbol={halo} onFilter={f => { setFilter(f); onView("agents"); }} index={i} /> : <CoinCard key={item.child.address} coin={item.child} parent={item.agent} index={i} />)}</div>;
   const searchRow = <>
     <div className="search"><Search size={17} aria-hidden="true" /><input id="board-search" className="input" aria-label="Search agents and coins" placeholder="Search agents, coins, tickers or addresses" value={search} onChange={e => setSearch(e.target.value)} /><kbd>/</kbd></div>
-    <div className="seg" role="group" aria-label="What to browse"><button type="button" aria-pressed={view === "agents"} onClick={() => onView("agents")}>Agents</button><button type="button" aria-pressed={view === "coins"} onClick={() => onView("coins")}>Coins</button></div>
+    <div className="seg box" role="group" aria-label="What to browse"><button type="button" aria-pressed={view === "agents"} onClick={() => onView("agents")}>Agents</button><button type="button" aria-pressed={view === "coins"} onClick={() => onView("coins")}>Coins</button></div>
     <Link href="/deploy" className="pill primary">Deploy an agent <span className="arrow" aria-hidden="true">→</span></Link>
   </>;
   return <>

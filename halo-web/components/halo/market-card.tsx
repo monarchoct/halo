@@ -56,7 +56,7 @@ export function AgentCard({ agent, haloSymbol = "TALOS", onFilter, index = 0 }: 
   const spark = useSpark(agent.agentToken);
   const change = spark.length >= 2 ? (spark[spark.length - 1] / spark[0] - 1) * 100 : null;
   return <article className="card hover reveal-up" style={{ "--i": index % 6 } as React.CSSProperties}>
-    <Link href={`/agents/${agent.address}`} aria-label={`${agent.name}, agent`}><Art seed={agent.address} symbol={agent.symbol} /></Link>
+    <Link href={`/agents/${agent.address}`} aria-label={`${agent.name}, agent`} className="card-photo"><Art seed={agent.address} symbol={agent.symbol} /><div className="card-overlay"><strong>{agent.name}</strong><span>${agent.symbol} / ${haloSymbol}</span></div></Link>
     <div className="card-badges">
       {m.graduated ? <button type="button" className="badge grad" onClick={() => onFilter?.("graduated")} title="Show graduated agents">Graduated</button>
         : agent.active ? <button type="button" className="badge" onClick={() => onFilter?.("active")} title="Show live agents"><span className="dot" aria-hidden="true" />Live</button>
@@ -65,18 +65,15 @@ export function AgentCard({ agent, haloSymbol = "TALOS", onFilter, index = 0 }: 
     <Link href={`/agents/${agent.address}#runtime`} className="ring" title={`Cycle ${cycles} · ${pct.toFixed(0)}% of the curve`}><CycleRing pct={pct} live={agent.active && !m.graduated} /></Link>
     <div className="card-body">
       <div className="card-title">
-        <div><Link href={`/agents/${agent.address}`} className="tap"><strong>{agent.name}</strong></Link><Link href={`/tokens/${agent.agentToken}`} className="ticker tap">${agent.symbol} / ${haloSymbol}</Link></div>
-        <Link href={`/tokens/${agent.agentToken}`} className="mc tap" title="Open the market"><b className="num">{compact(fdvQuote(m))} {haloSymbol}</b><span>FDV</span></Link>
+        <Link href={`/tokens/${agent.agentToken}`} className="mc tap" title="Open the market"><b className="num">{compact(fdvQuote(m))} {haloSymbol}</b><span>FDV · open the market</span></Link>
+        <span className="chg-slot">{spark.length >= 2 && <Sparkline values={spark} />}{change !== null && <span className={`chg ${change >= 0 ? "up" : "down"} num`}>{change >= 0 ? "+" : ""}{change.toFixed(1)}%</span>}</span>
       </div>
       {!m.graduated && <Link href={`/tokens/${agent.agentToken}`} className="curve" aria-label={`${pct.toFixed(1)}% of the curve sold`}><span className="progress"><i style={{ "--w": `${pct}%` } as React.CSSProperties} /></span><span className="pct num">{pct.toFixed(0)}%</span></Link>}
       <div className="card-meta">
         <Link href={`/agents/${agent.address}#runtime`} className="cycle tap">{cycles ? `cycle ${cycles}` : "no cycle yet"} · {days(agent.runwaySeconds)}d reserve</Link>
-        <span className="trend">{spark.length >= 2 && <Sparkline values={spark} />}{change !== null && <span className={`chg ${change >= 0 ? "up" : "down"} num`}>{change >= 0 ? "+" : ""}{change.toFixed(1)}%</span>}</span>
-      </div>
-      <div className="card-meta">
-        <AddressTap address={agent.address} explorerUrl={deployment?.explorerUrl} />
         <Link href={`/explore?view=coins&parent=${agent.address}`} className="tap">{agent.childCount} {Number(agent.childCount) === 1 ? "coin" : "coins"}</Link>
       </div>
+      <div className="card-meta"><AddressTap address={agent.address} explorerUrl={deployment?.explorerUrl} /></div>
     </div>
   </article>;
 }
@@ -87,18 +84,18 @@ export function CoinCard({ coin, parent, index = 0 }: { coin: Market; parent: { 
   const spark = useSpark(coin.address);
   const change = spark.length >= 2 ? (spark[spark.length - 1] / spark[0] - 1) * 100 : null;
   return <article className="card hover reveal-up" style={{ "--i": index % 6 } as React.CSSProperties}>
-    <Link href={`/tokens/${coin.address}`} aria-label={`${coin.name}, coin by ${parent.name}`}><Art seed={coin.address} symbol={coin.symbol} kind="coin" /></Link>
+    <Link href={`/tokens/${coin.address}`} aria-label={`${coin.name}, coin by ${parent.name}`} className="card-photo"><Art seed={coin.address} symbol={coin.symbol} kind="coin" /><div className="card-overlay"><strong>{coin.name}</strong><span>${coin.symbol} / ${coin.quoteSymbol}</span></div></Link>
     <div className="card-badges"><Link href={`/agents/${parent.address}`} className="badge" title={`Launched by ${parent.name}`}>Child of {parent.symbol}</Link>{coin.graduated && <span className="badge grad">Graduated</span>}</div>
     <Link href={`/tokens/${coin.address}`} className="ring" title={`${pct.toFixed(0)}% of the curve`}><CycleRing pct={pct} /></Link>
     <div className="card-body">
       <div className="card-title">
-        <div><Link href={`/tokens/${coin.address}`} className="tap"><strong>{coin.name}</strong></Link><Link href={`/tokens/${coin.address}`} className="ticker tap">${coin.symbol} / ${coin.quoteSymbol}</Link></div>
-        <Link href={`/tokens/${coin.address}`} className="mc tap"><b className="num">{compact(fdvQuote(coin))} {coin.quoteSymbol}</b><span>FDV</span></Link>
+        <Link href={`/tokens/${coin.address}`} className="mc tap"><b className="num">{compact(fdvQuote(coin))} {coin.quoteSymbol}</b><span>FDV · open the market</span></Link>
+        <span className="chg-slot">{spark.length >= 2 && <Sparkline values={spark} />}{change !== null && <span className={`chg ${change >= 0 ? "up" : "down"} num`}>{change >= 0 ? "+" : ""}{change.toFixed(1)}%</span>}</span>
       </div>
       {!coin.graduated && <Link href={`/tokens/${coin.address}`} className="curve" aria-label={`${pct.toFixed(1)}% of the curve sold`}><span className="progress"><i style={{ "--w": `${pct}%` } as React.CSSProperties} /></span><span className="pct num">{pct.toFixed(0)}%</span></Link>}
       <div className="card-meta">
         <AddressTap address={coin.address} explorerUrl={deployment?.explorerUrl} />
-        <span className="trend">{spark.length >= 2 && <Sparkline values={spark} />}{change !== null && <span className={`chg ${change >= 0 ? "up" : "down"} num`}>{change >= 0 ? "+" : ""}{change.toFixed(1)}%</span>}</span>
+        <Link href={`/agents/${parent.address}`} className="tap">by {parent.name}</Link>
       </div>
     </div>
   </article>;
