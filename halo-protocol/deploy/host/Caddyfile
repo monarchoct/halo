@@ -8,10 +8,9 @@
 		header Authorization "Bearer {$HALO_IPFS_PEER_TOKEN}"
 		path /api/v0/id /api/v0/block/put /api/v0/block/get /api/v0/pin/ls
 	}
-	handle @authorized {
-		reverse_proxy {args[0]}:5001
-	}
-	handle {
+	# route keeps the written order: a matched reverse_proxy terminates, anything else falls through to 403.
+	route {
+		reverse_proxy @authorized {args[0]}:5001
 		respond 403
 	}
 }
@@ -43,14 +42,12 @@ inference.{$HALO_DOMAIN} {
 	# HTTPS front for the Akash llama.cpp lease (the runtime refuses plain-HTTP inference backends off loopback).
 	# The bearer key still travels with every request; Caddy only adds TLS. Upstream comes from .env.
 	@allowed path /v1/chat/completions /v1/models /health
-	handle @allowed {
-		reverse_proxy {$HALO_INFERENCE_UPSTREAM} {
+	route {
+		reverse_proxy @allowed {$HALO_INFERENCE_UPSTREAM} {
 			transport http {
 				read_timeout 180s
 			}
 		}
-	}
-	handle {
 		respond 404
 	}
 }
