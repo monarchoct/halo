@@ -12,7 +12,7 @@ export const socialBindingSchema = z.object({
 }).strict();
 export const browserJobSchema = z.object({
   id: z.string().regex(/^[a-f0-9]{64}$/), platform: z.enum(['x', 'fomo']),
-  task: z.enum(['observe', 'onboard', 'publish']), chainId: z.number().int(),
+  task: z.enum(['observe', 'publish']), chainId: z.number().int(),
   text: z.string().max(2000).optional(), publish: z.boolean().default(false),
   reconcileOnly: z.boolean().default(false),
   display: z.enum(['browser','desktop']).default('browser'),

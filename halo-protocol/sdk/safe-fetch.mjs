@@ -5,9 +5,13 @@ import net from 'node:net';
 import ipaddr from 'ipaddr.js';
 
 export class SafeFetchHttpError extends Error {
-  constructor(statusCode) {
+  constructor(statusCode, retryAfter) {
     super(`Public source returned HTTP ${statusCode}; redirects are not followed`);
     this.name = 'SafeFetchHttpError'; this.statusCode = statusCode;
+    const seconds = Number(retryAfter);
+    const dateMs = typeof retryAfter === 'string' ? Date.parse(retryAfter) : NaN;
+    this.retryAfterSeconds = Number.isFinite(seconds) && seconds >= 0 ? Math.round(seconds)
+      : Number.isFinite(dateMs) ? Math.max(0, Math.round((dateMs - Date.now()) / 1000)) : undefined;
   }
 }
 
@@ -34,7 +38,7 @@ export async function safeFetch(value, { method = 'GET', body, headers = {}, max
       lookup: (_hostname, options, callback) => options.all ? callback(null, [chosen]) : callback(null, chosen.address, chosen.family),
       headers: { Accept: 'application/json', 'Accept-Encoding': 'identity', 'User-Agent': 'HALO-Operator/0.1', ...headers },
     }, response => {
-      if (response.statusCode < 200 || response.statusCode >= 300) { response.resume(); reject(new SafeFetchHttpError(response.statusCode)); return; }
+      if (response.statusCode < 200 || response.statusCode >= 300) { response.resume(); reject(new SafeFetchHttpError(response.statusCode, response.headers['retry-after'])); return; }
       if (response.headers['content-encoding'] && response.headers['content-encoding'] !== 'identity') { response.destroy(); reject(new Error('Compressed source responses are not accepted')); return; }
       let size = 0;
       const chunks = [];

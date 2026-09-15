@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from './schema.mjs';
-const migrations = ['0001_jobs_outbox.sql', '0002_social_delivery.sql', '0003_agent_inboxes.sql'].map((name, index) => {
+const migrations = ['0001_jobs_outbox.sql', '0002_social_delivery.sql', '0003_agent_inboxes.sql', '0004_social_bindings.sql'].map((name, index) => {
   const bytes = fs.readFileSync(new URL(`./migrations/${name}`, import.meta.url));
   return { version: index + 1, bytes, sha256: createHash('sha256').update(bytes).digest('hex') };
 });

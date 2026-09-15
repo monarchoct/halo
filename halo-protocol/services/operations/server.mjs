@@ -3,10 +3,25 @@ import cors from '@fastify/cors';
 import {z} from 'zod';
 import {createOperationsReader} from './reader.mjs';
 
-export async function createOperationsApi({database,client,deployment,artifacts,allowedOrigins=['http://localhost:5173','http://127.0.0.1:5173']}) {
+/** Simple in-memory per-agent token bucket. One process, best-effort: it resets on restart
+ * and does not coordinate across replicas, which is acceptable for connect/disconnect (a
+ * low-frequency, creator-signed action) but must not be mistaken for a distributed limiter. */
+function createTokenBucket({capacity=5,refillMs=60000}={}) {
+  const buckets=new Map();
+  return agent=>{
+    const now=Date.now();
+    const bucket=buckets.get(agent)??{tokens:capacity,updatedAt:now};
+    bucket.tokens=Math.min(capacity,bucket.tokens+(now-bucket.updatedAt)/refillMs*capacity);
+    bucket.updatedAt=now;
+    if(bucket.tokens<1){buckets.set(agent,bucket);return false;}
+    bucket.tokens-=1;buckets.set(agent,bucket);return true;
+  };
+}
+
+export async function createOperationsApi({database,client,deployment,artifacts,allowedOrigins=['http://localhost:5173','http://127.0.0.1:5173'],social}) {
   const reader=await createOperationsReader({database,deployment});
-  const app=Fastify({logger:false,bodyLimit:1024,requestTimeout:15000});
-  await app.register(cors,{origin:allowedOrigins,methods:['GET'],credentials:false});
+  const app=Fastify({logger:false,bodyLimit:65536,requestTimeout:15000});
+  await app.register(cors,{origin:allowedOrigins,methods:social?['GET','POST']:['GET'],credentials:false});
   app.addHook('onSend',async(_request,reply,payload)=>{reply.header('Cache-Control','no-store');return payload;});
   app.setErrorHandler((error,_request,reply)=>reply.code(error instanceof z.ZodError?400:503).send({error:error instanceof z.ZodError?'Invalid operations request':'Operator status is temporarily unavailable.'}));
   app.get('/health',async()=>{await database.pool.query('SELECT 1');return {service:'halo-public-operations',version:1,authority:'Read-only public projections; no execution or account authority'};});
@@ -23,5 +38,24 @@ export async function createOperationsApi({database,client,deployment,artifacts,
       return await reader.agent(agent,{limit});
     }finally{inFlight--;}
   });
+  if(social) {
+    const allow=createTokenBucket();
+    app.get('/v1/agents/:agent/social',async(request,reply)=>{
+      const agent=z.string().regex(/^0x[0-9a-fA-F]{40}$/).parse(request.params.agent).toLowerCase();
+      return social.view(agent);
+    });
+    app.post('/v1/agents/:agent/social/connect',async(request,reply)=>{
+      const agent=z.string().regex(/^0x[0-9a-fA-F]{40}$/).parse(request.params.agent).toLowerCase();
+      if(!allow(agent))return reply.code(429).send({error:'Too many connection attempts for this agent. Retry shortly.'});
+      const result=await social.connect(request.body);
+      return {agent,...result};
+    });
+    app.post('/v1/agents/:agent/social/disconnect',async(request,reply)=>{
+      const agent=z.string().regex(/^0x[0-9a-fA-F]{40}$/).parse(request.params.agent).toLowerCase();
+      if(!allow(agent))return reply.code(429).send({error:'Too many connection attempts for this agent. Retry shortly.'});
+      const result=await social.disconnect(request.body);
+      return {agent,...result};
+    });
+  }
   return app;
 }

@@ -64,38 +64,35 @@ try {
   passed.push('Two actual historical launches atomically create four distinct social intents and two receipts; replay adds no jobs and hold creates no posts');
 
   const base = () => ({ client, deployment, artifacts, content, store, confirmations: 1 });
-  const onboarding = createSocialHandler({ ...base(), async runBrowser(job, guard) {
-    browserCalls++; await guard.beforeStart(); await guard.verifyReceipt();
-    const saved = (await database.pool.query('SELECT * FROM halo_outbox WHERE prepared_payload->>\'id\'=$1', [job.id])).rows[0];
-    assert.equal(saved.last_result.status, 'browser-started'); assert.equal(saved.prepared_payload.text, job.text);
-    assert.equal(job.task, 'onboard'); assert.equal(job.publish, false);
-    return { executionId: randomUUID(), result: { status: 'needs-account' }, reportsDelivered: false };
-  } });
-  const initial = await createOutboxDispatcher({ store, workerId: 'social-onboard-fixture', handlers: { 'social-post': onboarding } }).deliverOnce('social-post');
+  // The agent's creator connects accounts out of band; there is no self-service onboarding
+  // task any more. With no connection at all, the job defers immediately and no browser runs.
+  const noConnection = createSocialHandler({ ...base(), async runBrowser() { browserCalls++; throw new Error('Must not run without a connected account'); } });
+  const initial = await createOutboxDispatcher({ store, workerId: 'social-no-connection-fixture', handlers: { 'social-post': noConnection } }).deliverOnce('social-post');
   assert.equal(initial.status, 'deferred'); target = { id: initial.id };
   target = await readTarget(); prepared = target.prepared_payload;
-  assert.equal(target.state, 'queued'); assert.equal(target.last_result.status, 'needs-account');
+  assert.equal(target.state, 'queued'); assert.equal(target.last_result.status, 'needs-connection');
   assert.equal(target.last_result.externalMutationPossible, false); assert.ok(prepared.text.includes(agent.toLowerCase()));
   assert.ok(prepared.text.includes(target.payload.transactionHash));
+  assert.equal(browserCalls, 0);
   const again = await prepareSocialPublication({ ...base(), intent: target.payload });
   assert.deepEqual(again, prepared);
   // Keep other independent platform/nonce jobs pending while isolating restart tests.
   await database.pool.query("UPDATE halo_outbox SET available_at=clock_timestamp()+interval '1 hour' WHERE topic='social-post' AND id<>$1", [target.id]);
-  passed.push('Real hash-checked evidence and token identity produce stable text before browser startup; missing account defers without acknowledging delivery');
+  passed.push('Real hash-checked evidence and token identity produce stable text; an agent with no connected account defers without ever launching a browser');
 
   await assert.rejects(prepareSocialPublication({ ...base(), intent: target.payload,
     content: { async get(uri) { return Buffer.concat([await content.get(uri), Buffer.from('altered')]); } } }), /content mismatch/);
   await assert.rejects(verifySocialReceipt({ ...base(), intent: { ...target.payload, child: `0x${'a'.repeat(40)}` } }), /does not match/);
   await assert.rejects(verifySocialReceipt({ ...base(), intent: target.payload,
     client: { ...client, async getBlock(args) { return { ...await client.getBlock(args), hash: `0x${'0'.repeat(64)}` }; } } }), /canonically confirmed/);
-  assert.equal(browserCalls, 1);
+  assert.equal(browserCalls, 0);
   passed.push('Altered public evidence, wrong child and a simulated orphaned receipt are rejected before any browser call');
 
   await makeDue(); const delivery = await store.claimDelivery('social-post', 'pre-crash-fixture');
   assert.equal(delivery.id, target.id);
   await assert.rejects(store.checkpointDelivery(delivery, { prepared: { ...prepared, text: 'Substituted thesis' } }), /cannot change/);
   const origin = target.payload.platform === 'x' ? 'https://x.com' : 'https://fomo.family';
-  const binding = { profileUrl: `${origin}/halo_test`, identity: { role: 'link', name: 'Profile' } };
+  const binding = { method: 'browser-session', state: 'connected', profileUrl: `${origin}/halo_test`, identity: { role: 'link', name: 'Profile' } };
   await store.checkpointDelivery(delivery, { result: { status: 'browser-started', jobId: prepared.id, profileUrl: binding.profileUrl, externalMutationPossible: true } });
   await database.pool.query("UPDATE halo_outbox SET lease_until=clock_timestamp()-interval '1 second' WHERE id=$1", [delivery.id]);
   await reconnect();
