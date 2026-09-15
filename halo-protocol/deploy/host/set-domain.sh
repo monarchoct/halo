@@ -2,7 +2,7 @@
 # Stamp the public domain into every host config and the testnet deploy config in one go.
 #   bash deploy/host/set-domain.sh halo.example.com [/srv/halo]
 # Rewrites: .env HALO_DOMAIN, allowedOrigins + X redirectUri + inference backend in config/*.json,
-# and the six public URLs in deploy/testnet/config.json (run from the repository).
+# and the six public URLs in deploy/testnet/config.json + deployment.json (run from the repository).
 set -euo pipefail
 DOMAIN="${1:?Usage: set-domain.sh <public-domain> [host-directory]}"
 HOST_DIR="${2:-$(cd "$(dirname "$0")" && pwd)}"
