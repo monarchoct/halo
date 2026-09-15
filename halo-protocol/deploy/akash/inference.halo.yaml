@@ -20,7 +20,7 @@ services:
           echo "$SHA  $F" | sha256sum -c -
         fi
         exec /app/llama-server --model "$F" --alias halo-qwen35-4b-v1 --host 0.0.0.0 --port 8080 \
-          --api-key "$HALO_INFERENCE_KEY" --ctx-size 8192 --parallel 4 --n-gpu-layers 99 --metrics
+          --api-key "$HALO_INFERENCE_KEY" --ctx-size 32768 --parallel 4 --n-gpu-layers 99 --metrics
     env:
       - HALO_INFERENCE_KEY=REPLACE_WITH_A_LONG_RANDOM_SECRET
     expose:
