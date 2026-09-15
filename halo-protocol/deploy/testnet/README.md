@@ -6,7 +6,7 @@ The exact steps from this repository to a running public testnet slice. Everythi
 
 Chain 46630 is an Arbitrum Orbit chain settling to Sepolia; ETH is the gas token.
 
-- Faucet: https://faucet.testnet.chain.robinhood.com (wallet address only; also hands out simulated stock tokens). Reported by a third-party guide — confirm on first use.
+- Faucet: https://faucet.testnet.chain.robinhood.com — verified 15 Sep 2026: **0.01 ETH per address per 24 h** (plus five of each test stock token), requires passing Cloudflare verification and signing in with a Google account, then pasting the receiving address. A human does this; it cannot be scripted.
 - Fallback: get Sepolia ETH (Alchemy, QuickNode or Chainlink faucets) and bridge with https://portal.arbitrum.io/bridge?sourceChain=sepolia&destinationChain=robinhood-chain-testnet
 - RPC `https://rpc.testnet.chain.robinhood.com` · explorer `https://explorer.testnet.chain.robinhood.com`
 
