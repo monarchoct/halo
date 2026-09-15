@@ -1,0 +1,21 @@
+{
+  "version": "halo-core-v1",
+  "model_sha256": "77d2eba11110e97767e99c15787f796886f41164295b32e7df9d5d4330ce3f89",
+  "trained": false,
+  "input_shape": [
+    1,
+    42
+  ],
+  "output_shape": [
+    1,
+    33
+  ],
+  "commitment_encoding": "32 separate bytes, each an exact integer between 0 and 255",
+  "authorization": "relu(sum(ten_boolean_facts)-9)",
+  "limitations": [
+    "Does not prove the larger LLM ran",
+    "Does not establish the truth of off-chain sources",
+    "Ten facts must be reconstructed from authoritative state and restricted to Boolean values by the EVM adapter",
+    "Model artifacts alone do not authorize spending; contract integration is required"
+  ]
+}

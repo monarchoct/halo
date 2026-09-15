@@ -1,0 +1,16 @@
+{
+  "version": "halo.linux-inference.v1",
+  "platform": "linux/amd64",
+  "source": {
+    "commit": "5266f24da75dc449bd56cbed7addb9c8e4a6a73e",
+    "url": "https://codeload.github.com/ggml-org/llama.cpp/tar.gz/5266f24da75dc449bd56cbed7addb9c8e4a6a73e",
+    "sha256": "2de0d87eda4696e9f6bbd771d4c623267f4e95856cce6f99793f91522f993e43"
+  },
+  "cpuImage": "ubuntu@sha256:a61567bd31828687156d735ea8eb01ba4e37636e225dd6a48ba94136a70d9d61",
+  "cudaBuildImage": "nvidia/cuda@sha256:4b9ed5fa8361736996499f64ecebf25d4ec37ff56e4d11323ccde10aa36e0c43",
+  "cudaRunImage": "nvidia/cuda@sha256:828c4d878adcaa4265d80c95d8ec877149b49bb2419a4cf3bb6aa889bbb7ca2e",
+  "cudaVersion": "12.8.1",
+  "cudaArchitecture": "89",
+  "modelSha256": "5c74c0ede371924357dff0cb6ba145bd67208b9b2389ded681adfff3f7608db7",
+  "disclosure": "Linux serving packaging is separate from the committed model/proposal release. GPU hosting and throughput require acceptance on the selected provider. OS package repositories are not snapshot-pinned."
+}

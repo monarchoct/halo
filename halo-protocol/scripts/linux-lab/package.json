@@ -1,0 +1,6 @@
+{
+  "name": "halo-local-linux-lab",
+  "private": true,
+  "type": "module",
+  "dependencies": { "ssh2": "1.17.0" }
+}

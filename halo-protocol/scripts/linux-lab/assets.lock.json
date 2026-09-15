@@ -1,0 +1,41 @@
+{
+  "scope": "Local Linux acceptance VM only; not a production operator image",
+  "checkedAt": "2026-09-13",
+  "assets": [
+    {
+      "file": "qemu-w64-setup-20260811.exe",
+      "url": "https://qemu.weilnetz.de/w64/qemu-w64-setup-20260811.exe",
+      "algorithm": "sha512",
+      "digest": "5bcf9eed634e8575a37b74f445af41a2fe4106da512d0c30c368301d4c105037fdfab40a5287367a28a957624cddebbc8c07e16c88ab6634f554cdf3d16bf543",
+      "checksumSource": "https://qemu.weilnetz.de/w64/qemu-w64-setup-20260811.sha512"
+    },
+    {
+      "file": "noble-server-cloudimg-amd64.img",
+      "url": "https://cloud-images.ubuntu.com/noble/20260911/noble-server-cloudimg-amd64.img",
+      "algorithm": "sha256",
+      "digest": "612b2c0cc1bc413a6cb8c38fd611794caf0f2b436c50013d8b3794db12ad7354",
+      "checksumSource": "https://cloud-images.ubuntu.com/noble/20260911/SHA256SUMS"
+    },
+    {
+      "file": "7z2603-x64.exe",
+      "url": "https://github.com/ip7z/7zip/releases/download/26.03/7z2603-x64.exe",
+      "algorithm": "sha256",
+      "digest": "0859c524b8a63551848f0c246abddcb1d0b7b656b0fbfe879f8d85e61a9e6edd",
+      "checksumSource": "https://api.github.com/repos/ip7z/7zip/releases/tags/26.03"
+    },
+    {
+      "file": "7zr.exe",
+      "url": "https://github.com/ip7z/7zip/releases/download/26.03/7zr.exe",
+      "algorithm": "sha256",
+      "digest": "ad4c82fadcbdf93c03b4fc440f300509c7d60c5c2f4d183e35d9d70d6957037d",
+      "checksumSource": "https://api.github.com/repos/ip7z/7zip/releases/tags/26.03"
+    },
+    {
+      "file": "pycdlib-1.20.0-py2.py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/d8/2e/624824081e1ceb69bcd2c3b2358d01e8ba7e7c84a0f019bf24e1e822ec01/pycdlib-1.20.0-py2.py3-none-any.whl",
+      "algorithm": "sha256",
+      "digest": "cb675959dd6d61e94f02560ed7e9a5d368a3188b5f7f31813bc25a750cff0863",
+      "checksumSource": "https://pypi.org/pypi/pycdlib/1.20.0/json"
+    }
+  ]
+}

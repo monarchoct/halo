@@ -1,0 +1,36 @@
+services:
+  inference:
+    image: ${HALO_INFERENCE_IMAGE:?Set the reviewed CUDA image digest}
+    platform: linux/amd64
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    gpus: all
+    cpus: 4
+    mem_limit: 12g
+    pids_limit: 128
+    restart: unless-stopped
+    environment:
+      HALO_REQUIRE_GPU: "1"
+    ports:
+      - "127.0.0.1:8082:8080"
+    volumes:
+      - type: bind
+        source: ${HALO_MODEL_DIRECTORY:?Set the verified model directory}
+        target: /models
+        read_only: true
+    secrets:
+      - source: inference-key
+        target: inference-key
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=128m,uid=1000,gid=1000
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, http://127.0.0.1:8080/health]
+      start_period: 180s
+      interval: 30s
+      timeout: 5s
+      retries: 3
+secrets:
+  inference-key:
+    file: ${HALO_INFERENCE_KEY_FILE:?Set a private API key file readable by uid 1000}

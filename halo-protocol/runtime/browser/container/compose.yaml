@@ -1,0 +1,51 @@
+services:
+  browser:
+    image: ${HALO_BROWSER_IMAGE:?Set the built browser image by immutable digest}
+    init: true
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./seccomp.json
+    shm_size: 512mb
+    mem_limit: 4g
+    cpus: 2
+    pids_limit: 256
+    tmpfs: ["/tmp:rw,nosuid,nodev,size=512m,uid=1000,gid=1000"]
+    volumes:
+      - ${HALO_BROWSER_JOB_FILE:?Set the reviewed job file}:/run/job.json:ro
+      - ${HALO_BROWSER_OUTPUT_DIR:?Set a fresh public output directory}:/public:rw
+      - profile:/profile:rw
+    networks: [browser_only]
+    depends_on:
+      egress:
+        condition: service_healthy
+    restart: "no"
+  egress:
+    image: ${HALO_BROWSER_IMAGE:?Set the built browser image by immutable digest}
+    command: [node, egress-proxy.mjs, /run/egress.json]
+    init: true
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    volumes:
+      - ${HALO_BROWSER_EGRESS_FILE:?Set the operator's allowed-host configuration}:/run/egress.json:ro
+    networks: [browser_only, internet]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3128/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: "no"
+networks:
+  browser_only:
+    internal: true
+  internet: {}
+volumes:
+  profile:
+    name: ${HALO_BROWSER_PROFILE_VOLUME:?Use the agent-specific private profile volume}

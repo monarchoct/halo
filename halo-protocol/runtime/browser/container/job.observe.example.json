@@ -1,0 +1,12 @@
+{
+  "id": "0000000000000000000000000000000000000000000000000000000000000000",
+  "platform": "fomo",
+  "task": "observe",
+  "chainId": 46630,
+  "publish": false,
+  "profileDirectory": "/profile",
+  "outputDirectory": "/public",
+  "egressProxy": "http://egress:3128",
+  "captureIntervalMs": 3000,
+  "maxRunSeconds": 180
+}

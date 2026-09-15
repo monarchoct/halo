@@ -1,0 +1,30 @@
+{
+  "version": "halo.inference-assets.v1",
+  "model": {
+    "repository": "bartowski/Qwen_Qwen3.5-4B-GGUF",
+    "revision": "4168f45a16a1290d65a4ec0fa312ae917a4c15d6",
+    "originalModel": "Qwen/Qwen3.5-4B",
+    "quantization": "Q8_0",
+    "file": "Qwen_Qwen3.5-4B-Q8_0.gguf",
+    "size": 4622131168,
+    "sha256": "5c74c0ede371924357dff0cb6ba145bd67208b9b2389ded681adfff3f7608db7",
+    "url": "https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/4168f45a16a1290d65a4ec0fa312ae917a4c15d6/Qwen_Qwen3.5-4B-Q8_0.gguf"
+  },
+  "runtime": {
+    "name": "llama.cpp",
+    "release": "v0.4.0",
+    "build": "b10809",
+    "commit": "5266f24da75dc449bd56cbed7addb9c8e4a6a73e",
+    "platform": "windows-x64-cuda13.3",
+    "file": "llama-b10809-bin-win-cuda-13.3-x64.zip",
+    "size": 149558056,
+    "sha256": "790a89e7c40049b8b1cd1a2565abe1d40cfc4e18843cdefa77ed2ce52d6a7b2d",
+    "url": "https://github.com/ggml-org/llama.cpp/releases/download/b10809/llama-b10809-bin-win-cuda-13.3-x64.zip"
+  },
+  "cuda": {
+    "file": "cudart-llama-bin-win-cuda-13.3-x64.zip",
+    "size": 390970417,
+    "sha256": "1462a050eb4c684921ba51dcc4cc488a036674c3e73e9945ee705b854808d03e",
+    "url": "https://github.com/ggml-org/llama.cpp/releases/download/b10809/cudart-llama-bin-win-cuda-13.3-x64.zip"
+  }
+}

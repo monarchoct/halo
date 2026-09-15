@@ -1,0 +1,29 @@
+{
+  "version": "halo-core-v1",
+  "ezklVersion": "23.0.5",
+  "modelSha256": "77d2eba11110e97767e99c15787f796886f41164295b32e7df9d5d4330ce3f89",
+  "verifierRuntimeCodeHash": "0x00a2201cf2d52a79f8817f1d83d2e90c7a6c0fcb7b0b80ee6d00dc3c2a4dc5d1",
+  "files": {
+    "settings.json": {
+      "sha256": "d0c412780efb957822819b9f8de7ee65379c264c25206298ef914c174e293e77",
+      "bytes": 1258
+    },
+    "core.ezkl": {
+      "sha256": "647440f9f3859a4b73df3a1dc20506753def54d64ab47d1ddc1ec764332c4695",
+      "bytes": 48311
+    },
+    "pk.key": {
+      "sha256": "18818dedfc40857a75de2f7287df961c12ea8609f2db75cdd1cf91b69820662e",
+      "bytes": 30680931
+    },
+    "vk.key": {
+      "sha256": "df32ddff80fadf75f8b53b85d03f3a85c2926d7dea08624205041060754bbac2",
+      "bytes": 9543
+    },
+    "kzg12.srs": {
+      "sha256": "28b151069f41abc121baa6d2eaa8f9e4c4d8326ddbefee2bd9c0776b80ac6fad",
+      "bytes": 524548
+    }
+  },
+  "notice": "Public proving material, not a private signing key. Verify this manifest hash against the release configuration."
+}

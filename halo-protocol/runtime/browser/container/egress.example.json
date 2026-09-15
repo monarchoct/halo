@@ -1,0 +1,4 @@
+{
+  "port": 3128,
+  "allowedHosts": ["x.com", "*.x.com", "fomo.family", "*.fomo.family", "abs.twimg.com", "pbs.twimg.com"]
+}

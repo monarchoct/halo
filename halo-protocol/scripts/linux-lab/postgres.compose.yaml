@@ -1,0 +1,26 @@
+# Disposable Linux acceptance database. Preserve this volume through the restart drill.
+services:
+  postgres:
+    image: postgres:17.11@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
+    environment:
+      POSTGRES_USER: halo_lab
+      POSTGRES_DB: halo_lab
+      POSTGRES_PASSWORD_FILE: /run/secrets/database_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    secrets: [database_password]
+    ports: ["127.0.0.1:54329:5432"]
+    volumes: [database:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U halo_lab -d halo_lab"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 1g
+    cpus: 2
+    pids_limit: 128
+    restart: "no"
+secrets:
+  database_password:
+    file: ./database-password.txt
+volumes:
+  database: {}

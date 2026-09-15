@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Solidity build output
+halo-protocol/artifacts/
+halo-protocol/cache/
+halo-protocol/out/
+halo-protocol/coverage/
+
+# Generated test evidence and chain logs (regenerable; may contain private state)
+halo-protocol/test-results/
+
+# Web build output and local runtime state
+halo-web/dist/
+halo-web/build/
+halo-web/.vinext/
+halo-web/.wrangler/
+halo-web/.sites-runtime/
+halo-web/tsconfig.tsbuildinfo
+
+# Secrets and credentials
+.env
+.env.*
+!.env.example
+*.dpapi
+*.pem
+*.p12
+*-credentials.json
+
+# OS
+desktop.ini
+Thumbs.db
+.DS_Store

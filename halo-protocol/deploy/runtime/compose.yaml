@@ -1,0 +1,69 @@
+name: halo-runtime
+x-runtime: &runtime
+  image: ${HALO_RUNTIME_IMAGE:?Set the reviewed repository image digest}
+  user: "1000:1000"
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 128
+  mem_limit: 3g
+  cpus: 2
+  tmpfs: [/tmp:rw,nosuid,nodev,size=256m,uid=1000,gid=1000]
+  restart: unless-stopped
+  stop_grace_period: 180s
+  logging:
+    driver: local
+    options: {max-size: "10m", max-file: "3"}
+services:
+  api:
+    <<: *runtime
+    command: [api, /config/api.json]
+    volumes:
+      - type: bind
+        source: ${HALO_API_CONFIG:?Set the API config directory}
+        target: /config
+        read_only: true
+        bind: {create_host_path: false}
+    ports: ["127.0.0.1:8787:8787"]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8787/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  operations:
+    <<: *runtime
+    command: [operations, /config/operations.json]
+    env_file: ${HALO_OPERATIONS_ENV:?Set a private reader-only environment file}
+    volumes:
+      - type: bind
+        source: ${HALO_OPERATIONS_CONFIG:?Set the operations config directory}
+        target: /config
+        read_only: true
+        bind: {create_host_path: false}
+    ports: ["127.0.0.1:8796:8796"]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8796/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  operator:
+    <<: *runtime
+    profiles: [execute]
+    command: [operator, /config/operator.json, --execute]
+    env_file: ${HALO_OPERATOR_ENV:?Set a private operator environment file}
+    volumes:
+      - type: bind
+        source: ${HALO_OPERATOR_CONFIG:?Set this operator's config directory}
+        target: /config
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${HALO_OPERATOR_KEY:?Set this operator's gas-key file}
+        target: /run/secrets/operator.key
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${HALO_OPERATOR_STATE:?Set this operator's persistent state directory}
+        target: /state
+        bind: {create_host_path: false}
