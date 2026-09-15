@@ -10,9 +10,8 @@ halo-protocol/coverage/
 # Generated test evidence and chain logs (regenerable; may contain private state)
 halo-protocol/test-results/
 
-# Web build output and local runtime state
+# Web build output and local runtime state (halo-web/build/ is source: the Sites vite plugin)
 halo-web/dist/
-halo-web/build/
 halo-web/.vinext/
 halo-web/.wrangler/
 halo-web/.sites-runtime/
