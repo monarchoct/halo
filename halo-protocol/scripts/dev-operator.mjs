@@ -5,6 +5,7 @@ import { root } from './compile.mjs';
 import { kuboReplica, replicatedArtifacts } from '../sdk/artifacts.mjs';
 import { createOperator } from '../runtime/operator.mjs';
 import { createTracePublisher } from '../runtime/trace.mjs';
+import { loadPublicModel } from '../runtime/inference.mjs';
 
 const deployment = JSON.parse(fs.readFileSync(path.join(root, 'test-results/local-deployment.json')));
 const peers = JSON.parse(fs.readFileSync(path.join(root, 'test-results/local-ipfs.json'))).peers;
@@ -20,13 +21,16 @@ const account = accounts[Number(process.env.HALO_LOCAL_OPERATOR_INDEX ?? 4)];
 if (!account) throw new Error('Select a disposable local operator account');
 const artifacts = Object.fromEntries(fs.readdirSync(path.join(root, 'artifacts')).filter(name => name.endsWith('.json')).map(name => [name.slice(0, -5), JSON.parse(fs.readFileSync(path.join(root, 'artifacts', name)))]));
 const directory = path.join(root, 'test-results', `operator-${account.toLowerCase()}`);
+// Optional live public model: HALO_INFERENCE_URL is the /v1 base (loopback HTTP or public HTTPS); the bearer key is read from a file, never from the command line.
+const publicModels = process.env.HALO_INFERENCE_URL ? [loadPublicModel({ releaseFile: path.join(root, 'models/proposal-qwen35-4b/release.json'), backendUrl: process.env.HALO_INFERENCE_URL,
+  authorization: `Bearer ${fs.readFileSync(process.env.HALO_INFERENCE_KEY_FILE ?? path.join(root, 'test-results/inference.key'), 'utf8').trim()}` })] : [];
 const operator = createOperator({ client, wallet, account, deployment, artifacts,
   store: replicatedArtifacts({ replicas: peers.map(apiUrl => kuboReplica({ apiUrl })) }),
   python: process.env.HALO_PYTHON ?? path.resolve(root, '../../work/halo-python', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'),
   directory, localOrigins: ['http://127.0.0.1:8787'], confirmations: 1,
   maxGasCostWei: 10n ** 16n, computeCostWei: 10n ** 10n,
   // Testnet work may be deliberately subsidized. This flag is rejected on every non-local deployment.
-  allowLocalLoss: true,
+  allowLocalLoss: true, publicModels,
   onStep: createTracePublisher({ wallet, account, deployment, endpoint: 'http://127.0.0.1:8791', localOrigins: ['http://127.0.0.1:8791'] }),
 });
 const requested = process.argv[2];
