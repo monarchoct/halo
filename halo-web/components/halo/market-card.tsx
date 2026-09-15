@@ -34,7 +34,7 @@ function useSpark(token: string | null) {
   useEffect(() => {
     if (!token || !deployment) return;
     const abort = new AbortController();
-    fetch(`${deployment.historyApiUrl ?? deployment.apiUrl}/v1/tokens/${token}/history?limit=24`, { signal: abort.signal, cache: "no-store" })
+    fetch(`${deployment.historyApiUrl ?? deployment.apiUrl}/v1/tokens/${token}/history?bucket=1h`, { signal: abort.signal, cache: "no-store" })
       .then(r => r.ok ? r.json() : null)
       .then((data: unknown) => {
         if (!data || typeof data !== "object") return;

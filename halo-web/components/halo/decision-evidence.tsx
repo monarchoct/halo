@@ -1,17 +1,19 @@
 "use client";
 import { useState } from "react";
 import { createPublicClient, decodeEventLog, http, type Abi, type Address, type Hash } from "viem";
-import { Button } from "@/components/ui/button";
+import { ExternalLink, ShieldCheck } from "lucide-react";
 import { useProtocol } from "./protocol-provider";
 import { evidenceCid, publicArtifact } from "@/lib/public-evidence";
 import type { ActionRecord } from "@/lib/halo-types";
 import vaultAbi from "@/lib/generated/AgentVault.json";
 type Evidence = { proposal: { rationale: string; module: string; sourceIds: string[] }; inference?: { releaseSha256: string; transcriptURI: string; elapsedSeconds: number }; sources: { id: string; title: string; url: string }[] };
+const cidOf = (hash: string) => { try { return evidenceCid(hash); } catch { return null; } };
 export function DecisionEvidence({ agent, action }: { agent: Address; action: ActionRecord }) {
   const { deployment } = useProtocol();
   const [evidence, setEvidence] = useState<Evidence | null>(null), [open, setOpen] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState("");
   const sourceIds = evidence?.proposal.sourceIds.filter(id => typeof id === "string" && /^[a-f0-9]{64}$/.test(id)).slice(0, 3) ?? [];
   const readableRationale = sourceIds.reduce((text, id, index) => text.split(id).join(`[${index + 1}]`), evidence?.proposal.rationale ?? "");
+  const cid = cidOf(action.evidenceHash), gateway = deployment?.artifactApiUrl;
   async function inspect() {
     if (evidence) { setOpen(value => !value); return; }
     if (!deployment?.artifactApiUrl) { setError("No evidence gateway is configured for this deployment."); return; }
@@ -34,13 +36,22 @@ export function DecisionEvidence({ agent, action }: { agent: Address; action: Ac
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Evidence could not be verified."); }
     finally { setBusy(false); }
   }
-  return <div className="decision-evidence"><Button size="sm" variant="ghost" disabled={busy} onClick={inspect}>{busy ? "Verifying evidence…" : open ? "Hide decision" : "Inspect decision"}</Button>
-    {error && <p role="alert" className="small-note">{error}</p>}
-    {open && evidence && <div className="decision-evidence-body"><strong>{evidence.inference ? "Public model proposal" : "Recorded proposal"}</strong><p>{readableRationale}</p>
-      <p className="small-note">Content hash and transaction receipt verified. Proposal module: {evidence.proposal.module}.</p>
-      {evidence.inference && <><p className="small-note">Recorded inference: {evidence.inference.elapsedSeconds.toFixed(2)} seconds. The transcript is an operator claim; the spending proof does not prove model authorship.</p>
-        <a href={`${deployment!.artifactApiUrl}/ipfs/${evidence.inference.transcriptURI.replace(/^ipfs:\/\//, "")}`} target="_blank" rel="noreferrer">View public inference transcript</a></>}
-      <ul>{sourceIds.map((id, index) => { const source = evidence.sources.find(item => item.id === id); return source && /^https:\/\//.test(source.url) ? <li key={id}><a href={source.url} target="_blank" rel="noreferrer">[{index + 1}] {source.title}</a></li> : null; })}</ul>
+  const shown = open && !!evidence;
+  return <div className="stack" style={{ gap: 8, marginTop: 4 }}>
+    <div className="row" style={{ gap: 6 }}>
+      <button type="button" className={`pill sm ${shown ? "" : "ghost"}`} disabled={busy} onClick={inspect} aria-expanded={shown} title="Fetch the evidence, check its content hash and match it to the receipt"><ShieldCheck size={13} /> {busy ? "Verifying evidence…" : shown ? "Hide decision" : "Verify decision"}</button>
+      {gateway && cid && <a className="pill sm ghost" href={`${gateway}/ipfs/${cid}`} target="_blank" rel="noreferrer" title="Open the raw evidence artifact">Evidence <ExternalLink size={13} /></a>}
+      <code className="hash dim" title={action.evidenceHash}>{action.evidenceHash.slice(0, 10)}…{action.evidenceHash.slice(-6)}</code>
+    </div>
+    {error && <p role="alert" className="inline-error">{error}</p>}
+    {shown && <div className="hash-block reveal-up" style={{ gap: 8, background: "var(--panel)" }}>
+      <div className="row between"><strong>{evidence.inference ? "Public model proposal" : "Recorded proposal"}</strong><span className="chip green"><ShieldCheck size={12} /> Hash &amp; receipt verified</span></div>
+      <p style={{ whiteSpace: "pre-wrap" }}>{readableRationale}</p>
+      <p className="dim">Proposal module <code>{evidence.proposal.module}</code>.{evidence.inference && <> Recorded inference: <span className="num">{evidence.inference.elapsedSeconds.toFixed(2)}</span> seconds. The transcript is an operator claim; the spending proof does not prove model authorship.</>}</p>
+      <div className="row" style={{ gap: 6 }}>
+        {evidence.inference && gateway && <a className="pill sm" href={`${gateway}/ipfs/${evidence.inference.transcriptURI.replace(/^ipfs:\/\//, "")}`} target="_blank" rel="noreferrer">Inference transcript <ExternalLink size={13} /></a>}
+        {sourceIds.map((id, index) => { const source = evidence.sources.find(item => item.id === id); return source && /^https:\/\//.test(source.url) ? <a key={id} className="chip" href={source.url} target="_blank" rel="noreferrer" title={source.url}>[{index + 1}] {source.title}</a> : null; })}
+      </div>
     </div>}
   </div>;
 }
