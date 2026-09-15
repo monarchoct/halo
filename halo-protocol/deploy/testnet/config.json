@@ -4,7 +4,7 @@
   "chainName": "Robinhood Chain Testnet",
   "rpcUrl": "https://rpc.testnet.chain.robinhood.com",
   "explorerUrl": "https://explorer.testnet.chain.robinhood.com",
-  "rootHalo": "0x0000000000000000000000000000000000000000",
+  "rootHalo": "0xa3f8215d9df1c73fcf713cfd050e772a05416a7f",
   "operatingToken": "0x7943e237c7F95DA44E0301572D358911207852Fa",
   "poolManager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
   "poolManagerCodeHash": "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626",

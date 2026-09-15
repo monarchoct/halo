@@ -1,0 +1,103 @@
+{
+  "checkedAt": "2026-09-15T15:17:40.121Z",
+  "environment": "testnet",
+  "chainId": 46630,
+  "deployer": "0x375A63856DbE829dD6C397bfc7C4BFA91088A5cc",
+  "dryRun": false,
+  "checks": [
+    {
+      "poolManager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+      "codeHash": "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626",
+      "reviewed": true
+    },
+    {
+      "rootHalo": "0xa3f8215d9df1c73fcf713cfd050e772a05416a7f",
+      "codeHash": "0xafed2bc66dd34ca05246bd68a4e2e213fdfd6f25fedb6ce9a81a16ffd0049273"
+    },
+    {
+      "operatingToken": "0x7943e237c7F95DA44E0301572D358911207852Fa",
+      "codeHash": "0x5706be52f64875fee65a2cec0d80e47a23d8793cbe85d214b48445e2d05f5353"
+    }
+  ],
+  "transactions": [
+    {
+      "name": "V4GraduationAdapter",
+      "hash": "0x7ec5777d0f5df58df64a33b391829a14361cb89b2ff169878982ac9e4eb6378c",
+      "address": "0x738cd106e1b62fca67f110d0a6f15b0a0dc38959",
+      "gasUsed": "6794835"
+    },
+    {
+      "name": "CurveFactory",
+      "hash": "0x2ffbea135fca419a96ac95fef83a5e8d8b712891f3788672ad8ccc99a49d8f41",
+      "address": "0xa7945f1e78c4618175db13170c12da651d2b41b4",
+      "gasUsed": "5790897"
+    },
+    {
+      "name": "Halo2Verifier",
+      "hash": "0x2ed83691d07188ba46db15802d1f543dedf7355583ffc4c56ceff79dd398a3be",
+      "address": "0xe64c8ef62734eef39bc779546a989e13ea9b393f",
+      "gasUsed": "6604117"
+    },
+    {
+      "name": "EzklDecisionVerifier",
+      "hash": "0x22f2963a0fb39fce85dbd9cb07817e75a7f23f772729576601e9ef510e103230",
+      "address": "0xc3696480f02d636f4f3a5a621c5a3b02f5154580",
+      "gasUsed": "651340"
+    },
+    {
+      "name": "RootReferenceMarket",
+      "hash": "0xe2488c31503a022c45791946dcc5c8f3f106ac19d8993424426c5b048896c574",
+      "address": "0x7af77c2c11974609a2914a83f2ae5d4e2431e036",
+      "gasUsed": "2364110"
+    },
+    {
+      "name": "FeeSettlementRouter",
+      "hash": "0x0d584dd2c7b090a94143d8eee2c4a9def9c39c83a7e4d6b7022c93466094e252",
+      "address": "0x0714d8d4f163ac1fe3913a0bdaf0e90167a6863e",
+      "gasUsed": "8954012"
+    },
+    {
+      "name": "AgentRegistry",
+      "hash": "0x2da57471c011b46ba24b9694386660d16879afb5ba46678f6023e0b3cc0d9a80",
+      "address": "0xab282c3d6874d9e6ca7cd80fff29e9f14d230d28",
+      "gasUsed": "8108629"
+    },
+    {
+      "name": "NativeBuyRouter",
+      "hash": "0x829a1dee9cf79df4c1bded663ad01b9a7cbf8ac9d129c1acc57923b457bb23a0",
+      "address": "0x35cfb041f9e8ee284bea9f776493a381273361c6",
+      "gasUsed": "3533786"
+    }
+  ],
+  "deployment": {
+    "version": 1,
+    "environment": "testnet",
+    "chainId": 46630,
+    "chainName": "Robinhood Chain Testnet",
+    "rpcUrl": "https://rpc.testnet.chain.robinhood.com",
+    "explorerUrl": "https://explorer.testnet.chain.robinhood.com",
+    "apiUrl": "https://api.PLACEHOLDER-DOMAIN",
+    "historyApiUrl": "https://api.PLACEHOLDER-DOMAIN",
+    "operationsApiUrl": "https://operations.PLACEHOLDER-DOMAIN",
+    "artifactApiUrl": "https://artifacts.PLACEHOLDER-DOMAIN",
+    "transparencyApiUrl": "https://live.PLACEHOLDER-DOMAIN",
+    "browserApiUrl": "https://screens.PLACEHOLDER-DOMAIN",
+    "registry": "0xab282c3d6874d9e6ca7cd80fff29e9f14d230d28",
+    "curveFactory": "0xa7945f1e78c4618175db13170c12da651d2b41b4",
+    "decisionVerifier": "0xc3696480f02d636f4f3a5a621c5a3b02f5154580",
+    "operatingToken": "0x7943e237c7F95DA44E0301572D358911207852Fa",
+    "rootHalo": "0xa3f8215d9df1c73fcf713cfd050e772a05416a7f",
+    "poolManager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+    "graduationAdapter": "0x738cd106e1b62fca67f110d0a6f15b0a0dc38959",
+    "hook": "0x51dc002753B5182CA39568AEe4abF932c9bee040",
+    "feeSettlement": "0x0714d8d4f163ac1fe3913a0bdaf0e90167a6863e",
+    "rootReferenceMarket": "0x7af77c2c11974609a2914a83f2ae5d4e2431e036",
+    "tradeRouter": "0xbC0deE3863545FEcF348fba690FB87770cE9B4Ac",
+    "nativeBuyRouter": "0x35cfb041f9e8ee284bea9f776493a381273361c6",
+    "deploymentBlock": "119952189",
+    "operatingSymbol": "WETH",
+    "haloSymbol": "tHALO",
+    "coreReleaseSha256": "bdb8414311fe4f4acc63d212bffb76c8aa3b6942df8c0acf2a51242be93540df",
+    "disclosure": "Public testnet deployment with test assets. No mainnet value."
+  }
+}
