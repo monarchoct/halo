@@ -1,1 +1,4 @@
-{ "connectionEnvironment": "HALO_MIGRATION_URL" }
+{
+  "connectionEnvironment": "HALO_MIGRATION_URL",
+  "caFile": "postgres-ca.crt"
+}

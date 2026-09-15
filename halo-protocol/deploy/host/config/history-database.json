@@ -1,0 +1,1 @@
+{ "url": "postgresql://halo_operator:PLACEHOLDER@postgres:5432/halo", "caFile": "postgres-ca.crt" }

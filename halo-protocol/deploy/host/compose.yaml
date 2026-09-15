@@ -11,7 +11,7 @@ x-runtime: &runtime
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
   pids_limit: 256
-  tmpfs: [/tmp:rw,nosuid,nodev,size=256m,uid=1000,gid=1000]
+  tmpfs: ["/tmp:rw,nosuid,nodev,size=256m,uid=1000,gid=1000"]
   restart: unless-stopped
   stop_grace_period: 180s
   logging: { driver: local, options: { max-size: "20m", max-file: "5" } }
@@ -24,9 +24,12 @@ services:
       POSTGRES_USER: halo_admin
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin
       POSTGRES_DB: halo
+    # TLS is mandatory for every runtime client outside local mode; the CA lives in config/postgres-ca.crt.
+    command: [postgres, -c, ssl=on, -c, ssl_cert_file=/tls/server.crt, -c, ssl_key_file=/tls/server.key]
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./config/postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./config/postgres/tls:/tls:ro
     secrets: [postgres_admin]
     healthcheck: { test: [CMD, pg_isready, -U, halo_admin, -d, halo], interval: 10s, timeout: 5s, retries: 12 }
     networks: [halo]

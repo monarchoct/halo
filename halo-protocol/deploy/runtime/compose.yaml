@@ -9,7 +9,7 @@ x-runtime: &runtime
   pids_limit: 128
   mem_limit: 3g
   cpus: 2
-  tmpfs: [/tmp:rw,nosuid,nodev,size=256m,uid=1000,gid=1000]
+  tmpfs: ["/tmp:rw,nosuid,nodev,size=256m,uid=1000,gid=1000"]
   restart: unless-stopped
   stop_grace_period: 180s
   logging:

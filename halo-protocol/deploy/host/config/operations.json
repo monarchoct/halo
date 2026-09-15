@@ -3,7 +3,10 @@
   "credentialEnvironment": "HALO_OPERATIONS_READER_URL",
   "host": "0.0.0.0",
   "port": 8796,
-  "allowedOrigins": ["https://halo.example.com", "https://www.halo.example.com"],
+  "allowedOrigins": [
+    "https://halo.example.com",
+    "https://www.halo.example.com"
+  ],
   "social": {
     "credentialEnvironment": "HALO_SOCIAL_WRITER_URL",
     "secretKeyFile": "/secrets/social/secret.key",
@@ -12,6 +15,8 @@
       "clientIdEnvironment": "HALO_X_CLIENT_ID",
       "clientSecretEnvironment": "HALO_X_CLIENT_SECRET",
       "redirectUri": "https://halo.example.com/connect/x"
-    }
-  }
+    },
+    "caFile": "postgres-ca.crt"
+  },
+  "caFile": "postgres-ca.crt"
 }

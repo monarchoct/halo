@@ -5,9 +5,17 @@
   "operatorAddress": "0x0000000000000000000000000000000000000000",
   "operatorKeyFile": "/run/secrets/operator.key",
   "ipfsPeers": [
-    { "apiUrl": "http://ipfs:5001" },
-    { "apiUrl": "https://pinning-service-one.example.com/api/v0", "authorizationEnvironment": "HALO_IPFS_PEER_TWO_AUTH" },
-    { "apiUrl": "https://pinning-service-two.example.com/api/v0", "authorizationEnvironment": "HALO_IPFS_PEER_THREE_AUTH" }
+    {
+      "apiUrl": "http://ipfs:5001"
+    },
+    {
+      "apiUrl": "https://pinning-service-one.example.com/api/v0",
+      "authorizationEnvironment": "HALO_IPFS_PEER_TWO_AUTH"
+    },
+    {
+      "apiUrl": "https://pinning-service-two.example.com/api/v0",
+      "authorizationEnvironment": "HALO_IPFS_PEER_THREE_AUTH"
+    }
   ],
   "confirmations": 4,
   "computeCostWei": "2000000000000",
@@ -15,7 +23,10 @@
   "maxGasCostWei": "20000000000000",
   "scanIntervalSeconds": 30,
   "transparencyEndpoint": "http://relays:8791",
-  "database": { "connectionEnvironment": "HALO_OPERATOR_DATABASE_URL" },
+  "database": {
+    "connectionEnvironment": "HALO_OPERATOR_DATABASE_URL",
+    "caFile": "postgres-ca.crt"
+  },
   "leaseSeconds": 180,
   "settleFees": true,
   "publicModels": []
