@@ -7,14 +7,45 @@ import path from 'node:path';
 import { keccak256, toHex } from 'viem';
 import { agentManifestSchema, canonicalJson } from '../../sdk/manifest.mjs';
 import { marketHistory } from '../../sdk/market-history.mjs';
+import { aggregate, pickBucket, coarsen } from '../../sdk/market-candles.mjs';
 import { nativePurchaseQuote } from '../../sdk/native-quote.mjs';
 
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
+const BUCKET_NAMES = { '1m': 60e3, '5m': 300e3, '15m': 900e3, '1h': 3600e3, '4h': 14400e3, '1d': 86400e3 };
+const RAW_POINT_LIMIT = 500;
 
-export async function createApi({ client, deployment, artifacts, artifactDirectory, historyJournal, allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'] }) {
+/** Builds the response candle series for a /history request, never throwing regardless of history size.
+ * When the requested bucket is at or above the reader's own auto-picked bucket, the reader's full-history
+ * candles are coarsened (exact, no precision loss). A finer request can only be honored for the time span
+ * still covered by the raw point window, since older trades were never kept individually (see market-history.mjs). */
+function resolveCandles({ points, candles, bucketMs: readerBucketMs }, { bucket, from, to }) {
+  const earliest = candles[0]?.time ?? points[0]?.time;
+  const latest = candles.at(-1)?.time ?? points.at(-1)?.time ?? Date.now();
+  const rangeMs = (to ?? latest) - (from ?? earliest ?? latest);
+  const requestedBucketMs = bucket && bucket !== 'auto' ? BUCKET_NAMES[bucket] : pickBucket(rangeMs);
+  let series, bucketMs;
+  if (requestedBucketMs >= readerBucketMs) { series = coarsen(candles, requestedBucketMs); bucketMs = requestedBucketMs; }
+  else { series = aggregate(points, requestedBucketMs, { fill: true }); bucketMs = requestedBucketMs; }
+  if (from !== undefined) series = series.filter(c => c.time >= Math.floor(from / bucketMs) * bucketMs);
+  if (to !== undefined) series = series.filter(c => c.time <= to);
+  return { candles: series, bucketMs };
+}
+
+const cursorCodec = {
+  encode: ({ blockNumber, logIndex }) => Buffer.from(`${blockNumber}.${logIndex}`).toString('base64url'),
+  decode(value) {
+    let text;
+    try { text = Buffer.from(value, 'base64url').toString('utf8'); } catch { throw new Error('Malformed cursor'); }
+    const match = /^(\d+)\.(\d+)$/.exec(text);
+    if (!match) throw new Error('Malformed cursor');
+    return { blockNumber: BigInt(match[1]), logIndex: Number(match[2]) };
+  },
+};
+
+export async function createApi({ client, deployment, artifacts, artifactDirectory, historyJournal, historyCandleCache, allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'] }) {
   const app = Fastify({ logger: false, bodyLimit: 64 * 1024, requestTimeout: 15_000 });
   const reader = chainReader({ client, deployment, artifacts });
-  const history = marketHistory({ client, deployment, artifacts, journal: historyJournal });
+  const history = marketHistory({ client, deployment, artifacts, journal: historyJournal, candleCache: historyCandleCache, maxEvents: RAW_POINT_LIMIT });
   const localArtifacts = deployment.environment === 'local' && artifactDirectory;
   await app.register(cors, { origin: allowedOrigins, methods: localArtifacts ? ['GET', 'POST'] : ['GET'], credentials: false });
   app.setErrorHandler((error, request, reply) => {
@@ -54,7 +85,35 @@ export async function createApi({ client, deployment, artifacts, artifactDirecto
   app.get('/v1/agents/:address', async request => jsonSafe(await reader.agent(address.parse(request.params.address))));
   app.get('/v1/agents/:address/actions', async request => jsonSafe(await reader.actions(address.parse(request.params.address))));
   app.get('/v1/tokens/:address', async request => jsonSafe(await reader.token(address.parse(request.params.address))));
-  app.get('/v1/tokens/:address/history', async request => history(address.parse(request.params.address)));
+  app.get('/v1/tokens/:address/history', async request => {
+    const query = z.object({ bucket: z.enum(['1m', '5m', '15m', '1h', '4h', '1d', 'auto']).default('auto'),
+      from: z.coerce.number().int().min(0).optional(), to: z.coerce.number().int().min(0).optional() }).strict().parse(request.query);
+    const snapshot = await history(address.parse(request.params.address));
+    const { candles, bucketMs } = resolveCandles(snapshot, query);
+    const points = query.from === undefined && query.to === undefined ? snapshot.points
+      : snapshot.points.filter(p => (query.from === undefined || p.time >= query.from) && (query.to === undefined || p.time <= query.to));
+    const { candles: _candles, bucketMs: _bucketMs, totalEvents, ...rest } = snapshot;
+    return jsonSafe({ ...rest, points, candles, bucketMs, truncated: totalEvents > snapshot.points.length });
+  });
+  app.get('/v1/tokens/:address/trades', async (request, reply) => {
+    const query = z.object({ limit: z.coerce.number().int().min(1).max(200).default(50), cursor: z.string().optional() }).strict().parse(request.query);
+    let after;
+    if (query.cursor !== undefined) {
+      try { after = cursorCodec.decode(query.cursor); } catch { return reply.code(400).send({ error: 'Malformed cursor' }); }
+    }
+    const { points } = await history(address.parse(request.params.address));
+    // points is ascending (blockNumber,logIndex); trades are served newest-first via the same keyset.
+    const descending = [...points].reverse();
+    let startIndex = 0;
+    if (after !== undefined) {
+      startIndex = descending.findIndex(p => BigInt(p.blockNumber) < after.blockNumber || (BigInt(p.blockNumber) === after.blockNumber && p.logIndex < after.logIndex));
+      if (startIndex === -1) return { trades: [], nextCursor: null };
+    }
+    const page = descending.slice(startIndex, startIndex + query.limit);
+    const nextCursor = page.length && startIndex + page.length < descending.length
+      ? cursorCodec.encode({ blockNumber: page.at(-1).blockNumber, logIndex: page.at(-1).logIndex }) : null;
+    return jsonSafe({ trades: page, nextCursor });
+  });
   let nativeQuotes = 0;
   app.get('/v1/tokens/:address/native-quote', async (request, reply) => {
     const token = address.parse(request.params.address);

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import {createPublicClient,http} from 'viem';
 import {createApi} from '../services/api/server.mjs';
 import {openDatabase} from '../services/persistence/database.mjs';
-import {createLogJournal} from '../services/history/journal.mjs';
+import {createLogJournal, createCandleCache} from '../services/history/journal.mjs';
 const artifacts=Object.fromEntries(fs.readdirSync(new URL('../artifacts/',import.meta.url)).filter(n=>n.endsWith('.json')).map(n=>[n.slice(0,-5),JSON.parse(fs.readFileSync(new URL(`../artifacts/${n}`,import.meta.url)))]));
 const apps=[];
 const database=process.env.HALO_HISTORY_DATABASE_URL?openDatabase({url:process.env.HALO_HISTORY_DATABASE_URL,local:true}):null;
@@ -13,8 +13,10 @@ try {
     const client=createPublicClient({transport:http(deployment.rpcUrl,{timeout:10000,retryCount:1})});
     if(await client.getChainId()!==deployment.chainId)throw new Error('Chain mismatch');
     const genesis=await client.getBlock({blockNumber:0n});
-    const historyJournal=database?createLogJournal({database,client,identity:`${deployment.chainId}:${deployment.registry}:${genesis.hash}`}):undefined;
-    const app=await createApi({client,deployment,artifacts,historyJournal});apps.push(app);
+    const identity=`${deployment.chainId}:${deployment.registry}:${genesis.hash}`;
+    const historyJournal=database?createLogJournal({database,client,identity}):undefined;
+    const historyCandleCache=database?createCandleCache({database,identity}):undefined;
+    const app=await createApi({client,deployment,artifacts,historyJournal,historyCandleCache});apps.push(app);
     await app.listen({host:'127.0.0.1',port});console.log(JSON.stringify({service:'local-market-history',name,port}));
   }
   await new Promise(resolve=>{process.once('SIGINT',resolve);process.once('SIGTERM',resolve);});

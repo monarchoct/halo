@@ -5,7 +5,7 @@ import {createPublicClient,http} from 'viem';
 import {assertSupportedDeployment} from '../../sdk/networks.mjs';
 import {createApi} from './server.mjs';
 import {openDatabase} from '../persistence/database.mjs';
-import {createLogJournal} from '../history/journal.mjs';
+import {createLogJournal, createCandleCache} from '../history/journal.mjs';
 
 if(!process.argv[2])throw new Error('Usage: api /config/api.json');
 const configPath=path.resolve(process.argv[2]);
@@ -20,16 +20,18 @@ const artifacts=Object.fromEntries(fs.readdirSync(new URL('../../artifacts/',imp
   .map(name=>[name.slice(0,-5),JSON.parse(fs.readFileSync(new URL(`../../artifacts/${name}`,import.meta.url)))]));
 let app,database;
 try{
-  let historyJournal;
+  let historyJournal,historyCandleCache;
   if(config.historyDatabaseFile){
     const privatePath=path.resolve(path.dirname(configPath),config.historyDatabaseFile);
     const dbConfig=z.object({url:z.string().url(),caFile:z.string().optional()}).strict().parse(JSON.parse(fs.readFileSync(privatePath)));
     database=openDatabase({url:dbConfig.url,ca:dbConfig.caFile?fs.readFileSync(path.resolve(path.dirname(privatePath),dbConfig.caFile),'utf8'):undefined});
     await database.pool.query('SELECT id FROM halo_history_streams LIMIT 0');
     const genesis=await client.getBlock({blockNumber:0n});
-    historyJournal=createLogJournal({database,client,identity:`${deployment.chainId}:${deployment.registry}:${genesis.hash}`});
+    const identity=`${deployment.chainId}:${deployment.registry}:${genesis.hash}`;
+    historyJournal=createLogJournal({database,client,identity});
+    historyCandleCache=createCandleCache({database,identity});
   }
-  app=await createApi({client,deployment,artifacts,historyJournal,allowedOrigins:config.allowedOrigins});
+  app=await createApi({client,deployment,artifacts,historyJournal,historyCandleCache,allowedOrigins:config.allowedOrigins});
   await app.listen({host:config.host,port:config.port});
   console.log(JSON.stringify({service:'halo-public-api',chainId:deployment.chainId,port:config.port}));
   await new Promise(resolve=>{process.once('SIGINT',resolve);process.once('SIGTERM',resolve);});
