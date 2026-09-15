@@ -11,7 +11,7 @@ function commit(file, bytes) {
 }
 
 /** Capture is serialized. Entering a private phase invalidates any screenshot already in flight. */
-export function createReportWriter({ page, getPage = () => page, job, directory, isPublic = screenIsPublic, captureDesktop }) {
+export function createReportWriter({ page, getPage = () => page, job, directory, isPublic = screenIsPublic, captureDesktop, sandbox }) {
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
   if (fs.readdirSync(directory).some(name => /^\d{6}\.(json|jpg|png)$/.test(name))) throw new Error('Each browser execution requires an unused output directory');
   let sequence = 0, revision = 0, stopped = false, queue = Promise.resolve();
@@ -22,7 +22,7 @@ export function createReportWriter({ page, getPage = () => page, job, directory,
       const startedRevision = revision, snapshot = { ...phase };
       const record = { version: 'halo.browser-report.v1', jobId: job.id, sequence,
         timestamp: new Date().toISOString(), siteOrigin: SOCIAL_PLATFORMS[job.platform].origin,
-        ...snapshot, width: 0, height: 0, ...(job.display==='desktop'?{surface:'desktop'}:{}) };
+        ...snapshot, width: 0, height: 0, ...(job.display==='desktop'?{surface:'desktop'}:{}), ...(sandbox?{sandbox}:{}) };
       const publicPhase = !['private', 'needs-account', 'error'].includes(snapshot.state);
       const capturePage = getPage();
       let bytes;

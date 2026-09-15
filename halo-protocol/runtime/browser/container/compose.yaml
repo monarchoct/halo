@@ -13,6 +13,9 @@ services:
     cpus: 2
     pids_limit: 256
     tmpfs: ["/tmp:rw,nosuid,nodev,size=512m,uid=1000,gid=1000"]
+    environment:
+      # Off by default. See runtime/browser/worker.mjs and deploy/akash/README.md.
+      HALO_BROWSER_UNSANDBOXED: ${HALO_BROWSER_UNSANDBOXED:-0}
     volumes:
       - ${HALO_BROWSER_JOB_FILE:?Set the reviewed job file}:/run/job.json:ro
       - ${HALO_BROWSER_OUTPUT_DIR:?Set a fresh public output directory}:/public:rw

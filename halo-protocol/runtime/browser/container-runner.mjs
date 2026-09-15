@@ -15,6 +15,9 @@ export const containerRunnerSchema = z.object({
   operatorAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/), operatorKeyFile: z.string().optional(),
   localTest: z.boolean().default(false), sudoDocker: z.boolean().default(false),
   display: z.enum(['browser','desktop']).default('browser'),
+  // Gated escape hatch for hosts that cannot grant Chromium's kernel sandbox (no privileged
+  // container, no user namespace — e.g. a Docker-less Akash pod). Off by default.
+  unsandboxed: z.boolean().default(false),
   maxRunSeconds: z.number().int().min(30).max(900).default(180),
   captureIntervalMs: z.number().int().min(2000).max(30000).default(3000),
 }).strict();

@@ -19,9 +19,10 @@ const container = `${config.project}-browser`;
 const job = JSON.parse(fs.readFileSync(config.jobFile));
 const env = { PATH: process.env.PATH, HOME: process.env.HOME, LANG: 'C.UTF-8', HALO_BROWSER_IMAGE: config.image,
   HALO_BROWSER_JOB_FILE: config.jobFile, HALO_BROWSER_OUTPUT_DIR: config.output,
-  HALO_BROWSER_PROFILE_VOLUME: config.profileVolume, HALO_BROWSER_EGRESS_FILE: config.egressFile };
+  HALO_BROWSER_PROFILE_VOLUME: config.profileVolume, HALO_BROWSER_EGRESS_FILE: config.egressFile,
+  HALO_BROWSER_UNSANDBOXED: config.unsandboxed ? '1' : '0' };
 const compose = ['compose', '-p', config.project, '-f', path.join(composeDirectory, 'compose.yaml')];
-const preserve = '--preserve-env=HALO_BROWSER_IMAGE,HALO_BROWSER_JOB_FILE,HALO_BROWSER_OUTPUT_DIR,HALO_BROWSER_PROFILE_VOLUME,HALO_BROWSER_EGRESS_FILE';
+const preserve = '--preserve-env=HALO_BROWSER_IMAGE,HALO_BROWSER_JOB_FILE,HALO_BROWSER_OUTPUT_DIR,HALO_BROWSER_PROFILE_VOLUME,HALO_BROWSER_EGRESS_FILE,HALO_BROWSER_UNSANDBOXED';
 const abort = new AbortController();
 process.once('SIGTERM', () => abort.abort()); process.once('SIGINT', () => abort.abort());
 const lines = createInterface({ input: process.stdin });
