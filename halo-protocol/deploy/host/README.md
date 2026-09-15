@@ -62,4 +62,5 @@ Repeat on a host under different credentials with its own operator key and state
 
 - Backups: nightly `pg_dump` into `/srv/halo/backups` (cron installed by bootstrap); ship them off-host and **rehearse a restore monthly**.
 - Updates: change `HALO_RUNTIME_IMAGE` to the new digest, `docker compose up -d`; migrations run first and the API waits for them.
+- After editing `Caddyfile` run `docker compose up -d --force-recreate caddy`: the file is a single-file bind mount, so a replaced file is invisible to the running container and `caddy reload` reports "config is unchanged".
 - Never mount `/var/run/docker.sock` into a workspace container; never put a key into `config/`.

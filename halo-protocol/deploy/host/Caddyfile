@@ -44,6 +44,8 @@ inference.{$HALO_DOMAIN} {
 	@allowed path /v1/chat/completions /v1/models /health
 	route {
 		reverse_proxy @allowed {$HALO_INFERENCE_UPSTREAM} {
+			# The Akash ingress routes by Host, so send the upstream's own host name, not ours.
+			header_up Host {upstream_hostport}
 			transport http {
 				read_timeout 180s
 			}
