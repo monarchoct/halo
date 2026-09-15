@@ -26,7 +26,7 @@ const passed = [];
 try {
   const migrations = await Promise.all([migrate(database), migrate(database)]);
   assert.equal(migrations[0].serverVersion, 170011); assert.equal(migrations[0].sha256, migrations[1].sha256);
-  assert.equal(migrations[0].version, 3); assert.equal((await verifySchema(database)).schemaVersion, 3);
+  assert.equal(migrations[0].version, 4); assert.equal((await verifySchema(database)).schemaVersion, 4);
   passed.push('Concurrent migration is serialized and pins its source checksum on real PostgreSQL 17.11');
   let store = await createJobStore({ database, deployment });
   const agent = `0x${'a'.repeat(40)}`;

@@ -46,7 +46,7 @@ const reconnect = async () => {
   await verifySchema(database); store = await createJobStore({ database, deployment });
 };
 try {
-  assert.equal((await migrate(database)).version, 3);
+  assert.equal((await migrate(database)).version, 4);
   store = await createJobStore({ database, deployment });
   for (const nonce of [0n, 1n]) await store.enqueue({ agent, nonce, payload: { version: 'halo.agent-cycle.v1', nonce: nonce.toString() } });
   const operator = { async runCycle() { executions++; throw new Error('Historical launch must not be executed again'); } };
