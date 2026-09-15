@@ -76,8 +76,9 @@ export function ProtocolProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener("eip6963:announceProvider", announce);
     window.dispatchEvent(new Event("eip6963:requestProvider"));
     const injected = (window as Window & { ethereum?: EIP1193Provider }).ethereum;
-    if (injected) setWallets(current => current.some(wallet => wallet.provider === injected) ? current : [...current, { info: { uuid: "injected", name: "Browser wallet" }, provider: injected }]);
-    return () => window.removeEventListener("eip6963:announceProvider", announce);
+    // Deferred so discovery joins the same tick as EIP-6963 announcements instead of forcing a synchronous re-render.
+    const discover = injected ? setTimeout(() => setWallets(current => current.some(wallet => wallet.provider === injected) ? current : [...current, { info: { uuid: "injected", name: "Browser wallet" }, provider: injected }]), 0) : undefined;
+    return () => { window.removeEventListener("eip6963:announceProvider", announce); if (discover) clearTimeout(discover); };
   }, []);
   useEffect(() => {
     if (!provider) return;
@@ -152,16 +153,20 @@ export function ProtocolProvider({ children }: { children: React.ReactNode }) {
 
 export function useApi<T>(endpoint: string | null) {
   const { deployment } = useProtocol();
-  const [data, setData] = useState<T | null>(null), [error, setError] = useState(""), [loading, setLoading] = useState(true), [version, setVersion] = useState(0);
+  const [version, setVersion] = useState(0);
+  const key = deployment && endpoint ? `${deployment.apiUrl}${endpoint}#${version}` : "";
+  const [result, setResult] = useState<{ key: string; data: T | null; error: string }>({ key: "", data: null, error: "" });
   const refresh = useCallback(() => setVersion(value => value + 1), []);
   useEffect(() => {
-    if (!deployment || !endpoint) { setLoading(false); return; }
-    const abort = new AbortController(); setLoading(true); setError("");
-    fetch(`${deployment.apiUrl}${endpoint}`, { signal: abort.signal, cache: "no-store" }).then(async response => {
-      const value = await response.json() as T & { error?: string }; if (!response.ok) throw new Error(value.error || "Data could not be loaded."); setData(value);
-    }).catch(error => { if (error.name !== "AbortError") { setError(error.message); setData(null); } })
-      .finally(() => { if (!abort.signal.aborted) setLoading(false); });
+    if (!key) return;
+    const abort = new AbortController();
+    fetch(key.slice(0, key.lastIndexOf("#")), { signal: abort.signal, cache: "no-store" }).then(async response => {
+      const value = await response.json() as T & { error?: string }; if (!response.ok) throw new Error(value.error || "Data could not be loaded."); setResult({ key, data: value, error: "" });
+    }).catch(error => { if (error.name !== "AbortError") setResult({ key, data: null, error: error.message }); });
     return () => abort.abort();
-  }, [deployment, endpoint, version]);
-  return { data, error, loading, refresh };
+  }, [key]);
+  const current = result.key === key;
+  // Keep the previous payload visible while a refresh for the same endpoint is in flight.
+  const previous = result.key.slice(0, result.key.lastIndexOf("#")) === key.slice(0, key.lastIndexOf("#"));
+  return { data: current || previous ? result.data : null, error: current ? result.error : "", loading: !!key && !current, refresh };
 }

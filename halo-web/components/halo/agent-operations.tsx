@@ -1,95 +1,68 @@
 "use client";
-import {useEffect,useState} from "react";
-import {RefreshCw,ArrowUpRight,Inbox,Radio,Clock3} from "lucide-react";
-import {Button} from "@/components/ui/button";
-import {Badge} from "@/components/ui/badge";
-import {Alert,AlertDescription} from "@/components/ui/alert";
-import {useProtocol} from "./protocol-provider";
-import {operationsSchema,publicPostUrl,type Operations} from "@/lib/operations";
-import {shortAddress} from "@/lib/halo-types";
+import { useEffect, useState } from "react";
+import { RefreshCw, ExternalLink, Inbox, Radio, Clock3 } from "lucide-react";
+import { useProtocol } from "./protocol-provider";
+import { operationsSchema, publicPostUrl, type Operations } from "@/lib/operations";
+import { shortAddress } from "@/lib/format";
 
-const at=(value:string|null)=>value?new Date(value).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}):"Not recorded";
-const states:Record<string,string>={queued:"Waiting for work",leased:"Worker lease active","lease-expired":"Awaiting replacement worker",completed:"Completion recorded",cancelled:"Cancelled",
-  "needs-account":"Account setup needed","account-mismatch":"Account mismatch","site-unavailable":"Site unavailable","site-not-ready":"Site not ready",
-  "composer-unconfigured":"Posting setup needed","browser-started":"Browser attempt started",drafted:"Draft prepared",failed:"Attempt failed"};
-const jobTitle:Record<string,string>={launch:"Launch token",hold:"Hold decision",buy:"Buy position",sell:"Sell position"};
+const at = (value: string | null) => value ? new Date(value).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Not recorded";
+const states: Record<string, string> = { queued: "Waiting for work", leased: "Worker lease active", "lease-expired": "Awaiting replacement worker", completed: "Completion recorded", cancelled: "Cancelled",
+  "needs-account": "Account setup needed", "needs-connection": "Account not connected", "account-mismatch": "Account mismatch", "credentials-expired": "Reconnect needed", "site-unavailable": "Site unavailable", "site-not-ready": "Site not ready",
+  "composer-unconfigured": "Posting setup needed", "browser-started": "Browser attempt started", drafted: "Draft prepared", posted: "Posted", failed: "Attempt failed" };
+const jobTitle: Record<string, string> = { launch: "Launch token", hold: "Hold decision", buy: "Buy position", sell: "Sell position" };
 
-export function AgentOperations({agent}:{agent:string}) {
-  const {deployment}=useProtocol(), endpoint=deployment?.operationsApiUrl;
-  const [snapshot,setSnapshot]=useState<{key:string;data:Operations}|null>(null),[error,setError]=useState("");
-  const [refresh,setRefresh]=useState(0),[loading,setLoading]=useState(false),[now,setNow]=useState(Date.now());
-  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),5000);return()=>clearInterval(timer);},[]);
-  const key=`${endpoint}:${deployment?.chainId}:${deployment?.registry}:${agent.toLowerCase()}`;
-  const data=snapshot?.key===key?snapshot.data:null;
-  const stale=!!data&&(!!error||now-Date.parse(data.observedAt)>45000||Date.parse(data.observedAt)-now>5000);
-  const jobState=(job:Operations["jobs"][number])=>job.state==="leased"
-    ? stale?"Lease recorded · current status unknown":job.leaseUntil&&Date.parse(job.leaseUntil)<=now?"Recorded lease expired":"Worker lease reported"
-    :states[job.state];
-  useEffect(()=>{
-    if(!endpoint||!deployment)return;
-    const abort=new AbortController();let timer:ReturnType<typeof setTimeout>|undefined;
-    setError("");
-    async function update(){
-      if(abort.signal.aborted)return;
-      setLoading(true);
-      try{
-        const response=await fetch(`${endpoint}/v1/agents/${agent}/operations`,{cache:"no-store",credentials:"omit",signal:AbortSignal.any([abort.signal,AbortSignal.timeout(12000)])});
-        if(!response.ok)throw new Error("Operator status is temporarily unavailable. The last successful snapshot may be out of date.");
-        const value=operationsSchema.parse(await response.json());
-        if(value.chainId!==deployment!.chainId||value.registry!==deployment!.registry.toLowerCase()||value.agent!==agent.toLowerCase())throw new Error("The operations service returned a different agent or deployment.");
-        if(!abort.signal.aborted){setSnapshot({key,data:value});setError("");}
-      }catch(error){if(!abort.signal.aborted)setError(error instanceof Error&&!(error.name==="ZodError")?error.message:"Operator status has an invalid response.");}
-      finally{if(!abort.signal.aborted){setLoading(false);timer=setTimeout(()=>void update(),15000);}}
+/** Sanitized operator-side records for one agent: jobs, inbox, publication attempts. Reports, not chain truth — Activity holds the receipts. */
+export function AgentOperations({ agent }: { agent: string }) {
+  const { deployment } = useProtocol(), endpoint = deployment?.operationsApiUrl;
+  const key = `${endpoint}:${deployment?.chainId}:${deployment?.registry}:${agent.toLowerCase()}`;
+  const [snapshot, setSnapshot] = useState<{ key: string; data?: Operations; error?: string; loading: boolean }>({ key: "", loading: false });
+  const [refresh, setRefresh] = useState(0), [now, setNow] = useState(0);
+  const data = snapshot.key === key ? snapshot.data : undefined, error = snapshot.key === key ? snapshot.error : "", loading = snapshot.key === key && snapshot.loading;
+  const stale = !!data && !!now && (!!error || now - Date.parse(data.observedAt) > 45000 || Date.parse(data.observedAt) - now > 5000);
+  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 5000); return () => clearInterval(timer); }, []);
+  useEffect(() => {
+    if (!endpoint || !deployment) return;
+    const abort = new AbortController(); let timer: ReturnType<typeof setTimeout> | undefined;
+    async function update() {
+      if (abort.signal.aborted) return;
+      setSnapshot(s => ({ ...(s.key === key ? s : { key, loading: false }), key, loading: true }));
+      try {
+        const response = await fetch(`${endpoint}/v1/agents/${agent}/operations`, { cache: "no-store", credentials: "omit", signal: AbortSignal.any([abort.signal, AbortSignal.timeout(12000)]) });
+        if (!response.ok) throw new Error("Operator status is temporarily unavailable. The last successful snapshot may be out of date.");
+        const value = operationsSchema.parse(await response.json());
+        if (value.chainId !== deployment!.chainId || value.registry !== deployment!.registry.toLowerCase() || value.agent !== agent.toLowerCase()) throw new Error("The operations service returned a different agent or deployment.");
+        if (!abort.signal.aborted) setSnapshot({ key, data: value, loading: false });
+      } catch (e) { if (!abort.signal.aborted) setSnapshot(s => ({ key, data: s.key === key ? s.data : undefined, loading: false, error: e instanceof Error && e.name !== "ZodError" ? e.message : "Operator status has an invalid response." })); }
+      finally { if (!abort.signal.aborted) timer = setTimeout(() => void update(), 15000); }
     }
-    void update();return()=>{abort.abort();if(timer)clearTimeout(timer);};
-  },[endpoint,deployment,agent,key,refresh]);
-  if(!endpoint)return <section className="operations-empty"><h2>Operator status unavailable</h2><p>This deployment has no connected operations service. Confirmed transactions remain available in Activity.</p></section>;
-  const publicationState=(item:Operations["publications"][number])=>{
-    if(item.state==="cancelled")return "Cancelled";
-    if(item.state==="delivered")return publicPostUrl(item)?"Publication reported":"Delivery needs verification";
-    if(item.state==="lease-expired")return states[item.state];
-    if(item.state==="leased")return stale?"Lease recorded · current status unknown":"Worker lease reported";
-    return states[item.outcome??""]??"Publication queued";
-  };
-  return <section className="agent-operations" aria-label="Agent operations">
-    <div className="section-topline"><div><h2>Behind each decision.</h2><p className="small-note">{data?`Snapshot ${at(data.observedAt)} · refreshes every 15 seconds`:"Loading operator records…"}</p></div>
-      <Button variant="outline" size="sm" disabled={loading} onClick={()=>setRefresh(value=>value+1)}><RefreshCw aria-hidden="true"/>Refresh status</Button></div>
-    {error&&<Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-    {stale&&<p role="status" className="warning-copy">Historical snapshot · current worker and publication status cannot be confirmed. Confirmed chain activity can be checked independently in Activity.</p>}
-    {!data&&!error&&<p role="status">Loading jobs and account setup…</p>}
-    {data&&<>
-      <p className="operations-boundary">Records from this operator group. Completion and publication labels are reports; use Activity for chain receipts and post links to inspect publication.</p>
-      <div className="operations-accounts">
-        <article><Inbox aria-hidden="true"/><h3>Agent inbox</h3><Badge variant="outline">{data.mail.state==="provisioned"?"Inbox provisioned":data.mail.state==="pending"?"Provisioning pending":"Not configured"}</Badge>
-          <p>{data.mail.state==="provisioned"?"A separate mailbox is assigned to this vault. This does not confirm social signup or message delivery.":"An operator must provide an inbox before email-based signup can continue."}</p>
-          <small>{data.mail.stale?"Last check is over 24 hours old. ":""}Last checked: {at(data.mail.lastCheckedAt)}</small></article>
-        {(["x","fomo"] as const).map(platform=>{
-          const latest=data.publications.find(item=>item.platform===platform);
-          return <article key={platform}><Radio aria-hidden="true"/><h3>{platform==="x"?"X / Twitter":"FOMO"}</h3><Badge variant="outline">{latest?publicationState(latest):"No publication attempt"}</Badge>
-            <p>{platform==="fomo"&&latest?.outcome==="needs-account"?"The observed signup requires a Google or Apple identity. An inbox alone does not complete this step.":latest?`Latest record belongs to action #${latest.nonce}.` :"No account or successful publication is established by these records."}</p>
-            {latest&&<small>{latest.attempts} attempts recorded</small>}</article>;
-        })}
+    void update(); return () => { abort.abort(); if (timer) clearTimeout(timer); };
+  }, [endpoint, deployment, agent, key, refresh]);
+  if (!endpoint) return <div className="empty"><h3>Operator status unavailable</h3><p>This deployment has no connected operations service. Confirmed transactions remain available in Activity.</p></div>;
+  const jobState = (job: Operations["jobs"][number]) => job.state === "leased" ? (stale ? "Lease recorded · status unknown" : job.leaseUntil && Date.parse(job.leaseUntil) <= now ? "Recorded lease expired" : "Worker lease reported") : states[job.state];
+  const publicationState = (item: Operations["publications"][number]) => item.state === "cancelled" ? "Cancelled" : item.state === "delivered" ? (publicPostUrl(item) ? "Posted" : "Delivery needs verification") : item.state === "lease-expired" ? states[item.state] : item.state === "leased" ? (stale ? "Lease recorded · status unknown" : "Worker lease reported") : states[item.outcome ?? ""] ?? "Publication queued";
+  return <div className="stack" aria-label="Agent operations">
+    <div className="row between"><div><h3>Behind each decision</h3><p className="dim">{data ? `Snapshot ${at(data.observedAt)} · refreshes every 15 seconds` : "Loading operator records…"}</p></div><button type="button" className="pill sm" disabled={loading} onClick={() => setRefresh(v => v + 1)}><RefreshCw size={14} /> Refresh</button></div>
+    {error && <p className="notice err" role="alert">{error}</p>}
+    {stale && <p className="notice warn" role="status">Historical snapshot · current worker and publication status cannot be confirmed. Chain activity can be checked independently in Activity.</p>}
+    {!data && !error && <p className="dim" role="status">Loading jobs and account setup…</p>}
+    {data && <>
+      <div className="fee-panels">
+        <div className="panel"><div className="row" style={{ gap: 8 }}><Inbox size={16} /><h3>Agent inbox</h3></div><p style={{ marginTop: 6 }}><span className="chip">{data.mail.state === "provisioned" ? "Provisioned" : data.mail.state === "pending" ? "Pending" : "Not configured"}</span></p><p className="dim" style={{ marginTop: 8 }}>{data.mail.state === "provisioned" ? "A separate mailbox is assigned to this vault." : "An operator must provide an inbox before email-based flows continue."} Last checked {at(data.mail.lastCheckedAt)}.</p></div>
+        {(["x", "fomo"] as const).map(platform => { const latest = data.publications.find(i => i.platform === platform); return <div className="panel" key={platform}><div className="row" style={{ gap: 8 }}><Radio size={16} /><h3>{platform === "x" ? "X" : "FOMO"}</h3></div><p style={{ marginTop: 6 }}><span className={`chip ${latest && publicPostUrl(latest) ? "green" : ""}`}>{latest ? publicationState(latest) : "No publication yet"}</span></p><p className="dim" style={{ marginTop: 8 }}>{latest ? `Latest record belongs to action #${latest.nonce} · ${latest.attempts} attempts.` : "The creator connects this account once; the agent posts from it afterwards."}</p></div>; })}
       </div>
-      <section aria-label="Operator jobs"><div className="section-topline"><h3><Clock3 aria-hidden="true"/>Operator jobs</h3><span className="small-note">Newest {data.jobs.length}</span></div>
-        {!data.jobs.length&&<p className="operations-empty">No jobs recorded for this agent by this operator group.</p>}
-        <div className="operations-jobs">{data.jobs.map(job=><article key={job.id}>
-          <div><strong>Action #{job.nonce} · {job.kind?jobTitle[job.kind]:"Agent cycle"}</strong><p>{job.attempts} attempts · Updated {at(job.updatedAt)}</p>
-            {job.state==="queued"&&<p>Eligible to retry {at(job.availableAt)}</p>}
-            {job.state==="leased"&&<p>Lease expires {at(job.leaseUntil)}. A lease alone does not prove the worker is running.</p>}
-            {job.transactionHash&&(deployment?.explorerUrl?<a href={`${deployment.explorerUrl}/tx/${job.transactionHash}`} target="_blank" rel="noreferrer">Transaction {shortAddress(job.transactionHash)}<ArrowUpRight aria-hidden="true"/></a>:<code title={job.transactionHash}>{shortAddress(job.transactionHash)}</code>)}
-          </div><Badge variant={job.state==="completed"?"secondary":"outline"}>{jobState(job)}</Badge></article>)}</div>
-        {data.hasMoreJobs&&<p className="small-note">Showing the newest 20 jobs. Older executions can be checked through Activity or the chain.</p>}
-      </section>
-      <section aria-label="Social publication records"><div className="section-topline"><h3>Theses & publication</h3></div>
-        {!data.publications.length&&<p className="operations-empty">No publication intents recorded. Confirmed child launches create publication jobs.</p>}
-        {data.publications.map(item=>{const url=publicPostUrl(item);return <article className="operations-publication" key={item.id}>
-          <div><h4>{item.platform==="x"?"X / Twitter":"FOMO"} · Action #{item.nonce}</h4><Badge variant={url?"secondary":"outline"}>{publicationState(item)}</Badge></div>
-          <p>{item.attempts} attempts{item.deliveredAt?` · Reported delivery ${at(item.deliveredAt)}`:item.state==="queued"?` · Retry eligible ${at(item.availableAt)}`:""}</p>
-          {item.thesis?<details><summary>Read prepared thesis</summary><p className="operations-thesis">{item.thesis}</p></details>:<p className="small-note">No prepared thesis is available yet.</p>}
-          {url&&<a href={url} target="_blank" rel="noreferrer">Inspect public post<ArrowUpRight aria-hidden="true"/></a>}
-        </article>;})}
-        {data.hasMorePublications&&<p className="small-note">Showing the newest 20 publication records.</p>}
-      </section>
+      <div className="panel"><div className="panel-head"><h2><Clock3 size={18} /> Operator jobs <span className="chip purple">{data.jobs.length}</span></h2></div>
+        {!data.jobs.length ? <p className="dim">No jobs recorded for this agent by this operator group.</p> : <div className="list">{data.jobs.map(job => <article className="list-row" key={job.id}><span className="glyph">#{job.nonce}</span>
+          <div className="info"><strong>{job.kind ? jobTitle[job.kind] : "Agent cycle"}</strong><p className="dim">{job.attempts} attempts · updated {at(job.updatedAt)}{job.state === "queued" && ` · retry ${at(job.availableAt)}`}{job.state === "leased" && ` · lease until ${at(job.leaseUntil)}`}</p>
+            {job.transactionHash && (deployment?.explorerUrl ? <a className="mono" href={`${deployment.explorerUrl}/tx/${job.transactionHash}`} target="_blank" rel="noreferrer">{shortAddress(job.transactionHash)} <ExternalLink size={12} /></a> : <code title={job.transactionHash}>{shortAddress(job.transactionHash)}</code>)}</div>
+          <span className={`chip ${job.state === "completed" ? "green" : ""}`}>{jobState(job)}</span></article>)}</div>}
+        {data.hasMoreJobs && <p className="dim" style={{ marginTop: 10 }}>Newest 20 jobs shown.</p>}</div>
+      <div className="panel"><div className="panel-head"><h2>Theses &amp; publication</h2></div>
+        {!data.publications.length ? <p className="dim">No publication intents recorded. Confirmed launches create publication jobs.</p> : <div className="list">{data.publications.map(item => { const url = publicPostUrl(item); return <article className="list-row" key={item.id}><span className="glyph">{item.platform === "x" ? "X" : "F"}</span>
+          <div className="info"><strong>{item.platform === "x" ? "X" : "FOMO"} · action #{item.nonce}</strong><p className="dim">{item.attempts} attempts{item.deliveredAt ? ` · delivered ${at(item.deliveredAt)}` : item.state === "queued" ? ` · retry ${at(item.availableAt)}` : ""}</p>
+            {item.thesis ? <details className="disclosure"><summary>Read prepared thesis</summary><p style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>{item.thesis}</p></details> : <p className="dim">No prepared thesis yet.</p>}</div>
+          {url ? <a className="pill sm" href={url} target="_blank" rel="noreferrer">Post <ExternalLink size={13} /></a> : <span className="chip">{publicationState(item)}</span>}</article>; })}</div>}
+        {data.hasMorePublications && <p className="dim" style={{ marginTop: 10 }}>Newest 20 records shown.</p>}</div>
+      <p className="dim">Records from this operator group. Completion and publication labels are reports; Activity holds the chain receipts.</p>
     </>}
-  </section>;
+  </div>;
 }

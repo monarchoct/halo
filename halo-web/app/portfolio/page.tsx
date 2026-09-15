@@ -1,42 +1,53 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createPublicClient, formatUnits, http, type Abi, type Address } from "viem";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
-import { AgentCard } from "@/components/halo/agent-card";
+import { AgentCard } from "@/components/halo/market-card";
 import { DataState } from "@/components/halo/data-state";
 import { useApi, useProtocol } from "@/components/halo/protocol-provider";
-import { shortAddress, type Agent } from "@/lib/halo-types";
+import type { Agent } from "@/lib/halo-types";
+import { shortAddress } from "@/lib/format";
 import splitterAbi from "@/lib/generated/FeeSplitter.json";
+
+const PAGE = 20;
 export default function Portfolio() {
   const { address, openWallet, disconnect, submit, deployment, transaction } = useProtocol();
   const [offset, setOffset] = useState(0), [claimError, setClaimError] = useState("");
-  const { data, loading, error, refresh } = useApi<{ agents: Agent[]; total: number }>(address ? `/v1/agents?offset=${offset}&limit=20` : null);
-  const own = data?.agents.filter(agent => agent.creator.toLowerCase() === address?.toLowerCase()) || [];
-  const payable = data?.agents.filter(agent => agent.fees.creator.toLowerCase() === address?.toLowerCase()) || [];
-  const [claimable, setClaimable] = useState<Record<string, string | null>>({});
+  const { data, loading, error, refresh } = useApi<{ agents: Agent[]; total: number }>(address ? `/v1/agents?offset=${offset}&limit=${PAGE}` : null);
+  const own = data?.agents.filter(a => a.creator.toLowerCase() === address?.toLowerCase()) ?? [];
+  const payable = data?.agents.filter(a => a.fees.creator.toLowerCase() === address?.toLowerCase()) ?? [];
+  const markets = payable.flatMap(a => [a.market, ...a.children]);
+  // Claimable balances are keyed by the wallet + data snapshot they were read for, so a stale read is never shown for a new wallet.
+  const [claimable, setClaimable] = useState<{ key: string; values: Record<string, string | null> } | null>(null);
+  const key = `${address}:${data?.total}:${offset}`;
+  const balances = claimable?.key === key ? claimable.values : null;
   const busy = transaction?.state === "approval" || transaction?.state === "pending";
   useEffect(() => {
-    let cancelled = false; setClaimable({});
     if (!address || !deployment || !data) return;
+    let cancelled = false;
     const client = createPublicClient({ transport: http(deployment.rpcUrl) });
-    const markets = data.agents.filter(agent => agent.fees.creator.toLowerCase() === address.toLowerCase()).flatMap(agent => [agent.market, ...agent.children]);
     Promise.all(markets.map(async market => {
-      try { const value = await client.readContract({ address: market.feeSplitter, abi: splitterAbi as Abi, functionName: "claimable", args: [address] }) as bigint;
-        return [market.address, value.toString()] as const; } catch { return [market.address, null] as const; }
-    })).then(values => { if (!cancelled) setClaimable(Object.fromEntries(values)); });
+      try { const value = await client.readContract({ address: market.feeSplitter, abi: splitterAbi as Abi, functionName: "claimable", args: [address] }) as bigint; return [market.address, value.toString()] as const; }
+      catch { return [market.address, null] as const; }
+    })).then(values => { if (!cancelled) setClaimable({ key, values: Object.fromEntries(values) }); });
     return () => { cancelled = true; };
-  }, [address, deployment, data]);
-  async function claim(splitter: Address) { try { setClaimError(""); await submit(splitter, splitterAbi as Abi, "claim", [address], "Claim creator fees"); refresh(); } catch (error) { setClaimError((error as Error).message); } }
-  return <main id="main" className="wrap page-main"><div className="page-heading"><div><p className="eyebrow">YOUR HALO</p><h1>Your portfolio<span className="lime">.</span></h1><p>{address ? `Agents created by ${shortAddress(address)}` : "Your agents and earned creator fees."}</p></div>
-    <Button variant="outline" onClick={address ? disconnect : openWallet}>{address ? "Disconnect session" : "Connect wallet"}</Button></div>
-    {!address ? <Empty><EmptyHeader><EmptyTitle>Connect to see your agents</EmptyTitle><EmptyDescription>Your wallet identifies the agents you created and the fee allocations you can claim.</EmptyDescription></EmptyHeader><Button onClick={openWallet}>Connect wallet</Button></Empty>
-      : loading || error ? <DataState loading={loading} error={error} retry={refresh} /> : <><div className="agent-grid">{own.map(agent => <AgentCard agent={agent} key={agent.address} />)}</div>
-        {!own.length && <p style={{ paddingBlock: 30 }}>No agents from this wallet in the current registry page.</p>}
-        {(data?.total || 0) > 20 && <div className="pagination"><Button variant="outline" disabled={!offset} onClick={() => setOffset(value => Math.max(0, value - 20))}>Previous registry page</Button><Button variant="outline" disabled={offset + 20 >= data!.total} onClick={() => setOffset(value => value + 20)}>Next registry page</Button></div>}
-        <div className="section-topline"><h2>Creator fee destinations</h2></div><p className="small-note">Claims are paid to the creator address committed in each market. The transaction reads the current claimable amount on chain.</p>
-        <div className="token-list" style={{ marginTop: 20 }}>{payable.flatMap(agent => [agent.market, ...agent.children]).map(market => <div className="token-row" key={market.address}><div className="token-info"><h3>{market.name}</h3><p>{claimable[market.address] == null ? claimable[market.address] === null ? "Balance unavailable" : "Reading balance…" : `${formatUnits(BigInt(claimable[market.address]!), market.quoteDecimals)} ${market.quoteSymbol} claimable`} · {shortAddress(market.feeSplitter)}</p></div><Button variant="outline" disabled={busy || !claimable[market.address] || claimable[market.address] === "0"} onClick={() => claim(market.feeSplitter)}>Claim fees</Button></div>)}</div>
-        {claimError && <Alert variant="destructive"><AlertDescription>{claimError}</AlertDescription></Alert>}</>}
+  // markets derives from data; key captures address/data identity.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, deployment, data, key]);
+  async function claim(splitter: Address) { try { setClaimError(""); await submit(splitter, splitterAbi as Abi, "claim", [address], "Claim creator fees"); refresh(); } catch (e) { setClaimError((e as Error).message); } }
+  return <main id="main" className="wrap page">
+    <div className="row between"><div><p className="eyebrow">Your HALO</p><h1>Portfolio</h1><p style={{ marginTop: 6 }}>{address ? `Agents created by ${shortAddress(address)} and the creator fees you can claim.` : "Your agents and earned creator fees."}</p></div>
+      <button type="button" className="pill" onClick={address ? disconnect : openWallet}>{address ? "Disconnect" : "Connect wallet"}</button></div>
+    {!address ? <div className="empty"><h3>Connect to see your agents</h3><p>Your wallet identifies the agents you created and the fee allocations you can claim.</p><button type="button" className="pill primary" onClick={openWallet}>Connect wallet</button></div>
+      : loading || error ? <DataState loading={loading} error={error} retry={refresh} /> : <>
+        <section className="panel"><div className="panel-head"><div><h2>Your agents <span className="chip purple">{own.length}</span></h2><p>Agents whose creator is this wallet, on the current registry page.</p></div><Link href="/deploy" className="pill sm">Deploy another</Link></div>
+          {own.length ? <div className="grid-cards">{own.map(a => <AgentCard key={a.address} agent={a} haloSymbol={deployment?.haloSymbol} />)}</div> : <p className="dim">No agents from this wallet on this page.</p>}
+          {(data?.total ?? 0) > PAGE && <div className="pagination"><button type="button" className="pill sm" disabled={!offset} onClick={() => setOffset(v => Math.max(0, v - PAGE))}>Previous page</button><button type="button" className="pill sm" disabled={offset + PAGE >= data!.total} onClick={() => setOffset(v => v + PAGE)}>Next page</button></div>}</section>
+        <section className="panel"><div className="panel-head"><div><h2>Creator fees</h2><p>Paid to the creator address committed in each market. Amounts are read live from each fee splitter.</p></div></div>
+          {markets.length ? <div className="list">{markets.map(market => { const v = balances ? balances[market.address] : undefined; return <div className="list-row" key={market.address}><span className="glyph">{market.symbol.slice(0, 2)}</span>
+            <div className="info"><strong>{market.name} <span className="dim">${market.symbol}</span></strong><p className="num">{v === undefined ? "Reading balance…" : v === null ? "Balance unavailable" : `${formatUnits(BigInt(v), market.quoteDecimals)} ${market.quoteSymbol} claimable`} · <code>{shortAddress(market.feeSplitter)}</code></p></div>
+            <button type="button" className="pill sm" disabled={busy || !v || v === "0"} onClick={() => claim(market.feeSplitter)}>Claim</button></div>; })}</div> : <p className="dim">No markets pay creator fees to this wallet yet.</p>}
+          {claimError && <p className="notice err" role="alert" style={{ marginTop: 12 }}>{claimError}</p>}</section>
+      </>}
   </main>;
 }

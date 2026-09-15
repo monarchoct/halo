@@ -1,9 +1,9 @@
 node_modules/
-artifacts/
-cache/
-out/
+/artifacts/
+/cache/
+/out/
 .env
 .env.*
 !.env.example
-coverage/
-test-results/
+/coverage/
+/test-results/
