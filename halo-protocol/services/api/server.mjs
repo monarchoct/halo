@@ -84,6 +84,20 @@ export async function createApi({ client, deployment, artifacts, artifactDirecto
   });
   app.get('/v1/agents/:address', async request => jsonSafe(await reader.agent(address.parse(request.params.address))));
   app.get('/v1/agents/:address/actions', async request => jsonSafe(await reader.actions(address.parse(request.params.address))));
+  // Network-wide feed of proven actions, newest first. Bounded to the first `agents` registered agents so one request
+  // cannot fan out without limit; a failed per-agent read is reported as partial rather than silently dropped.
+  app.get('/v1/activity', async request => {
+    const query = z.object({ limit: z.coerce.number().int().min(1).max(200).default(100),
+      agents: z.coerce.number().int().min(1).max(50).default(20) }).strict().parse(request.query);
+    const { agents, total } = await reader.agents({ offset: 0, limit: Math.min(query.agents, 20) });
+    const settled = await Promise.allSettled(agents.map(async agent => (await reader.actions(agent.address)).actions
+      .map(action => ({ ...action, agent: { address: agent.address, name: agent.name, symbol: agent.symbol, agentToken: agent.agentToken },
+        child: action.child, childMarket: agent.children.find(child => child.address.toLowerCase() === String(action.child).toLowerCase()) ?? null }))));
+    const activity = settled.flatMap(result => result.status === 'fulfilled' ? result.value : [])
+      .sort((a, b) => Number(BigInt(b.blockNumber) - BigInt(a.blockNumber)) || Number(BigInt(b.nonce) - BigInt(a.nonce))).slice(0, query.limit);
+    return jsonSafe({ version: 'halo.activity.v1', activity, agentsScanned: agents.length, agentsTotal: total,
+      partial: settled.some(result => result.status === 'rejected') });
+  });
   app.get('/v1/tokens/:address', async request => jsonSafe(await reader.token(address.parse(request.params.address))));
   app.get('/v1/tokens/:address/history', async request => {
     const query = z.object({ bucket: z.enum(['1m', '5m', '15m', '1h', '4h', '1d', 'auto']).default('auto'),
