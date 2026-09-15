@@ -29,7 +29,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./config/postgres/init:/docker-entrypoint-initdb.d:ro
-      - ./config/postgres/tls:/tls:ro
+      - ./tls:/tls:ro
     secrets: [postgres_admin]
     healthcheck: { test: [CMD, pg_isready, -U, halo_admin, -d, halo], interval: 10s, timeout: 5s, retries: 12 }
     networks: [halo]
