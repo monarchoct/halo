@@ -6,3 +6,4 @@
 !schema.mjs
 !report-writer.mjs
 !egress-proxy.mjs
+!desktop.mjs
