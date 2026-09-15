@@ -1,58 +1,87 @@
-name: Verify HALO contracts
+name: Verify HALO
+# Lives at the repository root so GitHub actually runs it (the previous copy under halo-protocol/ never executed).
+# Jobs mirror the local suites plus the ones that need Linux, Docker or PostgreSQL.
 on: [push, pull_request]
 permissions:
   contents: read
+defaults:
+  run:
+    working-directory: halo-protocol
 jobs:
-  contracts:
+  contracts-and-proofs:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22.23.2'
           cache: npm
+          cache-dependency-path: halo-protocol/package-lock.json
       - run: npm ci --ignore-scripts
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: |
-            models/core-v1/requirements.txt
-            runtime/requirements.txt
+            halo-protocol/models/core-v1/requirements.txt
+            halo-protocol/runtime/requirements.txt
       - run: python -m pip install -r models/core-v1/requirements.txt -r runtime/requirements.txt
+      - name: Line endings must be byte-exact (content hashes depend on it)
+        run: test "$(git ls-files --eol | grep -c 'w/crlf')" = 0
       - run: node test/run.mjs
       - run: node test/curve-oracle.mjs --no-compile
+      - run: node test/proof.mjs
+      - run: node test/native-buy.mjs
       - run: node test/fee-settlement.mjs --no-compile
-        env:
-          HALO_PYTHON: python
+        env: { HALO_PYTHON: python }
       - run: node test/real-agent.mjs --no-compile
-        env:
-          HALO_PYTHON: python
+        env: { HALO_PYTHON: python }
       - run: node test/graduated-agent.mjs --no-compile
-        env:
-          HALO_PYTHON: python
+        env: { HALO_PYTHON: python }
       - run: node test/runtime-unit.mjs
       - run: node test/inference-boundaries.mjs
+      - run: node test/social-connect.mjs
+      - run: node test/x-oauth.mjs
+      - run: node test/secret-store.mjs
+      - run: node test/akash-sdl.mjs
+      - run: node test/akash-console-client.mjs
+      - run: node test/profile-snapshot.mjs
+      - run: node test/workspace-entrypoint.mjs
+      - run: node test/browser-sandbox-gate.mjs
+      - run: node test/market-history.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: local-contract-evidence
-          path: |
-            test-results/contracts.json
-            test-results/real-agent.json
-            test-results/fee-settlement.json
-            test-results/curve-oracle.json
-            test-results/graduated-agent.json
-  browser-package:
+          name: contract-and-proof-evidence
+          path: halo-protocol/test-results/*.json
+
+  robinhood-fork:
+    # Reads the public Robinhood RPC and transacts only on a local fork. Rate-limited public endpoint: allowed to be flaky.
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22.23.2'
           cache: npm
+          cache-dependency-path: halo-protocol/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: node test/fork.mjs
+      - run: node test/native-buy.mjs --robinhood-fork
+
+  browser-package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+          cache: npm
+          cache-dependency-path: halo-protocol/package-lock.json
       - run: npm ci --ignore-scripts
       - run: npm ci --prefix runtime/browser --ignore-scripts
       - run: node test/browser-driver.mjs
@@ -65,12 +94,13 @@ jobs:
         with:
           name: browser-boundary-evidence
           path: |
-            test-results/browser-driver.json
-            test-results/browser-egress.json
-            test-results/browser-container.json
+            halo-protocol/test-results/browser-driver.json
+            halo-protocol/test-results/browser-egress.json
+            halo-protocol/test-results/browser-container.json
+
   persistent-queue:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:17.11@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
@@ -90,9 +120,13 @@ jobs:
         with:
           node-version: '22.23.2'
           cache: npm
+          cache-dependency-path: halo-protocol/package-lock.json
       - run: npm ci --ignore-scripts
       - run: npm ci --prefix services/persistence --ignore-scripts
       - run: node test/persistence.mjs
+      - run: node test/social-outbox.mjs
+      - run: node test/agent-inboxes.mjs
+      - run: node test/history-journal.mjs
       - name: Crash the disposable database and restart its original volume
         env:
           POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
@@ -104,6 +138,22 @@ jobs:
         if: always()
         with:
           name: postgres-queue-evidence
-          path: |
-            test-results/persistence.json
-            test-results/persistence-restart.json
+          path: halo-protocol/test-results/*.json
+
+  website:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: halo-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+          cache: npm
+          cache-dependency-path: halo-web/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npx tsc --noEmit -p tsconfig.json
+      - run: npm run lint
+      - run: npm run build
