@@ -15,7 +15,12 @@ export function startReveal(): () => void {
   scan();
   const mo = new MutationObserver(scan);
   mo.observe(document.body, { childList: true, subtree: true });
-  return () => { io.disconnect(); mo.disconnect(); };
+  // Safety net: background tabs and prerenders never fire the observer, so anything already inside the viewport
+  // is revealed on a timer and again whenever the tab becomes visible.
+  const sweep = () => document.querySelectorAll(".reveal-up:not(.in)").forEach(el => { const r = el.getBoundingClientRect(); if (r.top < innerHeight && r.bottom > 0) el.classList.add("in"); });
+  const timer = setTimeout(sweep, 1200);
+  document.addEventListener("visibilitychange", sweep);
+  return () => { io.disconnect(); mo.disconnect(); clearTimeout(timer); document.removeEventListener("visibilitychange", sweep); };
 }
 
 /** Animate a number from its current displayed value to `target` over `ms`. Returns a cancel function. */
