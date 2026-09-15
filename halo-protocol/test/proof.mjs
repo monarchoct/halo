@@ -6,8 +6,11 @@ import { decodeFunctionData, decodeFunctionResult, encodeFunctionData, keccak256
 import { startChain } from './helpers.mjs';
 import { root } from '../scripts/compile.mjs';
 
-const proofDir = path.resolve(process.argv[2] ?? path.join(root, '../../work/core-proof'));
-const source = fs.readFileSync(path.join(proofDir, 'CoreVerifier.sol'), 'utf8');
+// Fixtures live in the repository so the suite is self-contained. Pass a fresh EZKL output directory
+// (containing CoreVerifier.sol, benchmark.json and calldata.bytes) to check a newly generated proof instead.
+const proofDir = path.resolve(process.argv[2] ?? path.join(root, 'test/fixtures/core-proof'));
+const verifierSource = fs.existsSync(path.join(proofDir, 'CoreVerifier.sol')) ? path.join(proofDir, 'CoreVerifier.sol') : path.join(root, 'models/core-v1/Halo2Verifier.sol');
+const source = fs.readFileSync(verifierSource, 'utf8');
 const output = JSON.parse(solc.compile(JSON.stringify({ language: 'Solidity', sources: { 'CoreVerifier.sol': { content: source } },
   settings: { optimizer: { enabled: true, runs: 200 }, evmVersion: 'cancun',
     outputSelection: { '*': { '*': ['abi', 'evm.bytecode.object', 'evm.deployedBytecode.object'] } } } })));
