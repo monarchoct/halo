@@ -45,7 +45,10 @@
     "export:web": "node scripts/export-web.mjs",
     "core:package": "node scripts/package-core.mjs",
     "test:native-buy": "node test/native-buy.mjs",
-    "test:native-buy-fork": "node test/native-buy.mjs --robinhood-fork"
+    "test:native-buy-fork": "node test/native-buy.mjs --robinhood-fork",
+    "test:social-connect": "node test/social-connect.mjs",
+    "test:x-oauth": "node test/x-oauth.mjs",
+    "test:secret-store": "node test/secret-store.mjs"
   },
   "dependencies": {
     "@fastify/cors": "11.3.0",

@@ -49,7 +49,8 @@ GRANT CONNECT ON DATABASE halo TO halo_operator;
 GRANT USAGE ON SCHEMA public TO halo_operator;
 GRANT SELECT ON halo_migrations TO halo_operator;
 GRANT SELECT, INSERT, UPDATE ON halo_deployments, halo_jobs,
-  halo_job_attempts, halo_outbox TO halo_operator;
+  halo_job_attempts, halo_outbox, halo_mail_providers, halo_agent_inboxes,
+  halo_social_bindings TO halo_operator;
 ```
 
 Replace the example database/role names with the actual deployment names. Migrations use a transaction-level advisory lock and a stored SHA-256. Startup verifies the applied migration; modifying an already-applied migration is rejected. Use a new migration for subsequent schema changes. Connection pools are bounded to eight by default and reject a configured maximum above 32.
@@ -92,6 +93,8 @@ Migration `0002_social_delivery.sql` adds prepared text/hash and attempt-result/
 Actual Linux acceptance passed sixteen PostgreSQL scenarios and seven social-outbox scenarios using Nova's two existing launches and retrieved public evidence. The latter injected browser results to test failures and recovery; it created no external account or post and submitted no transactions. Fifteen separate browser-driver fixtures verify reconciliation and capture boundaries. Selected evidence is in `test-results/linux-social-outbox/`. `test/social-outbox.mjs` requires the preserved local trading deployment, loopback RPC/artifact gateway and a Linux PostgreSQL test URL; it is not a public-chain or authenticated-browser test.
 
 The separate container runner and social CLI subsequently passed actual queued FOMO account setup, signed delivery, profile exclusion and interruption cleanup. A local consumer is running against that accepted database. Continuous native model workers now use this Linux database through the shared scheduler and agent-scoped claims. Lyra produced a fresh real-model launch, paid its operator and generated both social jobs; five pipeline checks passed against the actual browser reports. Eighteen persistence scenarios passed after preserving outbox publication metadata. Independent deployment and complete recovery/accounting remain. See test-results/linux-queued-browser/ and runtime/browser/README.md.
+
+**Design update:** the "FOMO account setup" described above was the old self-service `onboard` browser task, which has been removed. Migration `0004_social_bindings.sql` adds `halo_social_bindings` -- a private table recording which social account each agent's *creator* connected, through which method (`oauth` for X, `browser-session` for FOMO) and to which canonical public profile. `services/persistence/social-bindings.mjs` mirrors `inboxes.mjs`: deterministic per-agent-per-platform identity, and a connected profile cannot be silently replaced without disconnecting first. This table is never queried directly by any public surface; only its non-secret columns are exposed, through the read-only `halo_public_social_bindings` projection and the creator-signature-verified connect/disconnect write API in `services/operations/social-api.mjs`. Secrets (OAuth refresh tokens) are never stored in this database at all -- only an opaque `secret_ref` pointing into `runtime/identity/secret-store.mjs`. See `runtime/social/README.md`.
 
 ## Work still required
 

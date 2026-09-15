@@ -84,37 +84,105 @@ export async function prepareSocialPublication({ client, deployment, artifacts, 
     text, intentHash: digest(intent), receipt: intent.transactionHash, evidenceURI: intent.evidenceURI };
 }
 
-/** A browser result is not delivery success. Only a reconciled public post completes social delivery. */
+/** A social connection is state, not the DOM-selector automation config: it says whether the
+ * agent's creator has connected an account, through which method, and to which public profile.
+ * Browser-session connections (FOMO) also carry the operator's DOM-selector overrides so the
+ * isolated browser knows which controls to use; OAuth connections (X) never touch a browser
+ * for publication and instead carry an opaque secretRef into runtime/identity/secret-store.mjs. */
+export const socialConnectionSchema = z.discriminatedUnion('method', [
+  z.object({ method: z.literal('oauth'), state: z.enum(['connected', 'credentials-expired', 'disconnected']),
+    profileUrl: z.string().url(), secretRef: z.string().regex(/^[a-f0-9]{32,64}$/) }).strict(),
+  socialBindingSchema.extend({ method: z.literal('browser-session'), state: z.enum(['connected', 'credentials-expired', 'disconnected']) }).strict(),
+]);
+
+/** A browser or API result is not delivery success. Only a reconciled public post completes
+ * social delivery. Publication never launches a browser or calls an external API until the
+ * agent's creator has connected an account out of band -- there is no self-service onboarding. */
 export function createSocialHandler({ client, deployment, artifacts, content, store, runBrowser, bindings = async () => undefined,
-  confirmations = 4, publish = false }) {
+  publishApi, reportConnectionState = async () => {}, confirmations = 4, publish = false, observeAfterApiPost = false }) {
   assertSupportedDeployment(deployment);
   if (publish && deployment.environment === 'local') throw new Error('Local social execution cannot publish external posts');
+  const forgetState = (agent, platform, state) => reportConnectionState(agent, platform, state).catch(() => {});
   return async (payload, delivery, { signal } = {}) => {
     signal?.throwIfAborted();
     const intent = socialIntentSchema.parse(payload);
     const prepared = await prepareSocialPublication({ client, deployment, artifacts, content, intent, confirmations });
     const checkpoint = await store.checkpointDelivery(delivery, { prepared });
-    const suppliedBinding = await bindings(intent.agent, intent.platform);
-    const binding = suppliedBinding ? socialBindingSchema.parse(suppliedBinding) : undefined;
-    if (binding) {
-      const profile = new URL(binding.profileUrl);
+    const suppliedConnection = await bindings(intent.agent, intent.platform);
+    const connection = suppliedConnection ? socialConnectionSchema.parse(suppliedConnection) : undefined;
+    if (connection) {
+      const profile = new URL(connection.profileUrl);
       if (profile.origin !== SOCIAL_PLATFORMS[intent.platform].origin || profile.username || profile.password
-        || profile.search || profile.hash || profile.pathname === '/' || profile.href !== binding.profileUrl)
+        || profile.search || profile.hash || profile.pathname === '/' || profile.href !== connection.profileUrl)
         throw new Error('Social account must have a canonical public profile on its platform');
     }
-    const profileUrl = checkpoint.result?.profileUrl ?? binding?.profileUrl;
-    if (profileUrl && binding?.profileUrl !== profileUrl) throw new Error('Publication account cannot change across attempts');
+    const profileUrl = checkpoint.result?.profileUrl ?? connection?.profileUrl;
+    if (profileUrl && connection?.profileUrl !== profileUrl) throw new Error('Publication account cannot change across attempts');
     const previousPossible = checkpoint.result?.externalMutationPossible === true;
-    const task = binding ? 'publish' : 'onboard';
-    const couldPublish = task === 'publish' && publish;
-    await store.checkpointDelivery(delivery, { result: { status: 'browser-started', jobId: prepared.id, ...(profileUrl ? { profileUrl } : {}),
+
+    // The creator connects accounts out of band (OAuth for X; a not-yet-built isolated
+    // browser-session connect flow for FOMO). No connection means no browser, no API call.
+    if (!connection || connection.state !== 'connected') {
+      const result = { status: 'needs-connection', jobId: prepared.id, ...(profileUrl ? { profileUrl } : {}),
+        externalMutationPossible: previousPossible, reportsDelivered: false };
+      await store.checkpointDelivery(delivery, { result });
+      return { deliveryStatus: 'deferred', retrySeconds: 3600, result };
+    }
+
+    if (connection.method === 'oauth') {
+      if (!publishApi) throw new Error('OAuth publication requires an injected API publisher');
+      if (!publish) {
+        const result = { status: 'drafted', jobId: prepared.id, profileUrl, externalMutationPossible: previousPossible, reportsDelivered: false };
+        return { deliveryStatus: 'deferred', retrySeconds: 300, result };
+      }
+      if (previousPossible) {
+        // No browser reconciliation exists for an API post: an earlier attempt of uncertain
+        // outcome must never be retried automatically. An operator resolves this manually.
+        const result = { status: 'uncertain', jobId: prepared.id, profileUrl, externalMutationPossible: true, reportsDelivered: false };
+        return { deliveryStatus: 'deferred', retrySeconds: 3600, result };
+      }
+      await store.checkpointDelivery(delivery, { result: { status: 'api-started', jobId: prepared.id, profileUrl, externalMutationPossible: true } });
+      let api;
+      try {
+        api = await publishApi({ agent: intent.agent, platform: intent.platform, profileUrl, text: prepared.text,
+          secretRef: connection.secretRef, jobId: prepared.id }, { signal });
+      } catch (error) {
+        const status = error?.code === 'credentials-expired' ? 'credentials-expired' : error?.code === 'rate-limited' ? 'rate-limited'
+          : error?.code === 'site-unavailable' ? 'site-unavailable' : undefined;
+        if (!status) throw error; // Unexpected failure: stay uncertain and force manual reconciliation before any retry.
+        if (status === 'credentials-expired') await forgetState(intent.agent, intent.platform, 'credentials-expired');
+        const result = { status, jobId: prepared.id, profileUrl, externalMutationPossible: false, reportsDelivered: false };
+        return { deliveryStatus: 'deferred', retrySeconds: error.retryAfterSeconds ?? (status === 'rate-limited' ? 900 : 3600), result };
+      }
+      if (typeof api?.url !== 'string' || api.url.length > 2048 || typeof api?.id !== 'string') throw new Error('API publication is missing its public permalink');
+      const post = new URL(api.url), profile = new URL(profileUrl);
+      if (post.origin !== profile.origin || post.username || post.password || post.search || post.hash
+        || post.pathname === '/' || post.href === profile.href
+        || (intent.platform === 'x' && !new RegExp(`^${profile.pathname.replace(/\/$/, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/status/[0-9]+$`).test(post.pathname)))
+        throw new Error('API publication has an invalid public permalink');
+      const result = { status: 'posted', jobId: prepared.id, profileUrl, postUrl: api.url, externalMutationPossible: true, reportsDelivered: false };
+      if (observeAfterApiPost && runBrowser) {
+        // Best-effort only: delivery is already complete once the API confirms the post.
+        try {
+          const execution = await runBrowser({ id: prepared.id, platform: intent.platform, task: 'observe', chainId: deployment.chainId },
+            { agent: intent.agent, signal });
+          result.reportsDelivered = execution?.reportsDelivered === true;
+        } catch { /* Live view is a bonus; a missed observation never blocks or reverses delivery. */ }
+      }
+      return { deliveryStatus: 'posted', result };
+    }
+
+    // Browser-session (FOMO): the connection record doubles as the browser's DOM-selector binding.
+    const couldPublish = publish;
+    await store.checkpointDelivery(delivery, { result: { status: 'browser-started', jobId: prepared.id, profileUrl,
       externalMutationPossible: previousPossible || couldPublish } });
-    const execution = await runBrowser({ id: prepared.id, platform: intent.platform, task, chainId: deployment.chainId,
-      text: prepared.text, publish, reconcileOnly: previousPossible, ...(binding ? { binding } : {}) }, { agent: intent.agent,
+    const execution = await runBrowser({ id: prepared.id, platform: intent.platform, task: 'publish', chainId: deployment.chainId,
+      text: prepared.text, publish, reconcileOnly: previousPossible, binding: connection }, { agent: intent.agent,
       signal, beforeStart: () => store.checkpointDelivery(delivery),
       verifyReceipt: () => verifySocialReceipt({ client, deployment, artifacts, intent, confirmations }) });
     const browser = execution.result;
     if (!browser || typeof browser.status !== 'string' || browser.status.length > 80) throw new Error('Browser result is missing its bounded outcome');
+    if (['needs-account', 'account-mismatch'].includes(browser.status)) await forgetState(intent.agent, intent.platform, 'credentials-expired');
     const knownNoSubmission = ['needs-account', 'account-mismatch', 'composer-unconfigured', 'site-unavailable', 'site-not-ready', 'drafted'].includes(browser.status)
       || (browser.status === 'failed' && browser.stage === 'startup');
     const result = { status: browser.status, jobId: prepared.id, executionId: execution.executionId, ...(profileUrl ? { profileUrl } : {}),
@@ -122,7 +190,7 @@ export function createSocialHandler({ client, deployment, artifacts, content, st
       externalMutationPossible: previousPossible || (couldPublish && !knownNoSubmission),
       reportsDelivered: execution.reportsDelivered === true };
     if (browser.status === 'posted') {
-      if (!binding || (!couldPublish && !previousPossible) || browser.profileUrl !== profileUrl || browser.text !== prepared.text
+      if ((!couldPublish && !previousPossible) || browser.profileUrl !== profileUrl || browser.text !== prepared.text
         || typeof browser.postUrl !== 'string' || browser.postUrl.length > 2048) throw new Error('Posted outcome does not match the committed thesis and account');
       const post = new URL(browser.postUrl), profile = new URL(profileUrl);
       if (post.origin !== profile.origin || post.username || post.password || post.search || post.hash

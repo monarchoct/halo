@@ -3,8 +3,8 @@ import {z} from 'zod';
 import {canonicalJson} from '../../sdk/manifest.mjs';
 import {assertSupportedDeployment} from '../../sdk/networks.mjs';
 
-export const views=['halo_public_deployments','halo_public_jobs','halo_public_social','halo_public_mail'];
-const privateTables=['halo_deployments','halo_jobs','halo_job_attempts','halo_outbox','halo_mail_providers','halo_agent_inboxes'];
+export const views=['halo_public_deployments','halo_public_jobs','halo_public_social','halo_public_mail','halo_public_social_bindings'];
+const privateTables=['halo_deployments','halo_jobs','halo_job_attempts','halo_outbox','halo_mail_providers','halo_agent_inboxes','halo_social_bindings'];
 const address=z.string().regex(/^0x[0-9a-fA-F]{40}$/).transform(value=>value.toLowerCase());
 const uint=z.string().regex(/^(0|[1-9][0-9]{0,77})$/);
 const hash=z.string().regex(/^0x[0-9a-f]{64}$/);
@@ -33,6 +33,13 @@ function postLink(platform,post,profile) {
   }catch{return null;}
 }
 
+/** Never includes secret_ref or connect_message/connect_signature -- those never leave halo_social_bindings. */
+export function socialPlatforms(rows) {
+  const byPlatform={x:null,fomo:null};
+  for(const row of rows??[]) byPlatform[row.platform]={state:row.state,profileUrl:row.profile_url,method:row.method,connectedAt:timestamp(row.created_at)};
+  return byPlatform;
+}
+
 export async function createOperationsReader({database,deployment}) {
   assertSupportedDeployment(deployment);await assertOperationsReader(database);
   const registry=address.parse(deployment.registry),deploymentId=`${deployment.chainId}:${registry}`;
@@ -50,7 +57,8 @@ export async function createOperationsReader({database,deployment}) {
       const jobs=(await connection.query('SELECT * FROM public.halo_public_jobs WHERE deployment_id=$1 AND agent=$2 ORDER BY nonce DESC LIMIT $3',[deploymentId,agent,limit+1])).rows;
       const social=(await connection.query('SELECT * FROM public.halo_public_social WHERE deployment_id=$1 AND agent=$2 ORDER BY created_at DESC,id DESC LIMIT $3',[deploymentId,agent,limit+1])).rows;
       const mail=(await connection.query('SELECT state,verified_at FROM public.halo_public_mail WHERE deployment_id=$1 AND agent=$2',[deploymentId,agent])).rows[0];
-      rows={observedAt,jobs,social,mail};await connection.query('COMMIT');
+      const bindings=(await connection.query('SELECT platform,state,profile_url,method,created_at FROM public.halo_public_social_bindings WHERE deployment_id=$1 AND agent=$2',[deploymentId,agent])).rows;
+      rows={observedAt,jobs,social,mail,bindings};await connection.query('COMMIT');
     }catch(error){await connection.query('ROLLBACK');throw error;}finally{connection.release();}
     const now=new Date(rows.observedAt).getTime();
     const queueState=row=>row.state==='leased'&&new Date(row.lease_until).getTime()<=now?'lease-expired':row.state;
@@ -67,6 +75,7 @@ export async function createOperationsReader({database,deployment}) {
         transactionHash:hash.parse(row.transaction_hash),outcome:row.outcome,
         thesis:typeof row.thesis==='string'?row.thesis.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\u202a-\u202e\u2066-\u2069]/g,'').slice(0,2000):null,
         postUrl:row.state==='delivered'&&row.outcome==='posted'?postLink(row.platform,row.post_url,row.profile_url):null})),
+      social:socialPlatforms(rows.bindings),
       hasMoreJobs:rows.jobs.length>limit,hasMorePublications:rows.social.length>limit};
   }};
 }

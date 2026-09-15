@@ -14,13 +14,13 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const image = process.argv[2]; assert.match(image ?? '', /^sha256:[a-f0-9]{64}$/);
 const platform = process.argv[3] ?? 'fomo'; assert.ok(['fomo', 'x'].includes(platform));
 const forwarding = process.argv.includes('--forward'), failStartup = process.argv.includes('--fail-startup');
-const desktop=process.argv.includes('--desktop'),onboard=process.argv.includes('--onboard');
+const desktop=process.argv.includes('--desktop'); // self-service onboarding is removed: this harness only ever observes
 const agent = '0x532323de74BAb864b7005D910E5bD8562D038b9b';
 const executionId = randomUUID();
 const jobId = createHash('sha256').update(JSON.stringify(['halo.local-observe.v1', 31337, agent.toLowerCase(), platform, executionId])).digest('hex');
 const directory = path.join(root, 'test-results', `browser-observe-${executionId}`);
 const output = path.join(directory, 'public'); fs.mkdirSync(output, { recursive: true, mode: 0o700 });
-const job = { id: jobId, platform, task: onboard?'onboard':'observe', display:desktop?'desktop':'browser', chainId: 31337, publish: false,
+const job = { id: jobId, platform, task: 'observe', display:desktop?'desktop':'browser', chainId: 31337, publish: false,
   profileDirectory: '/profile', outputDirectory: '/public', egressProxy: 'http://egress:3128', captureIntervalMs: 3000, maxRunSeconds: 180 };
 const jobFile = path.join(directory, 'job.json'); fs.writeFileSync(jobFile, JSON.stringify(job, null, 2), { mode: 0o600 });
 const composeDirectory = path.join(root, 'runtime/browser/container');
@@ -94,11 +94,11 @@ try {
   if (publisherFd !== undefined) fs.closeSync(publisherFd);
   docker(['rm', '-f', container]);
   docker([...compose, 'down', '--remove-orphans']);
-  // This agent-specific profile is intentionally retained for subsequent observation/onboarding.
+  // This agent-specific profile is intentionally retained for subsequent observation.
 }
 const evidence = { checkedAt: new Date().toISOString(), jobId, executionId, platform, agent, image,
   operatorTriggered: true, scope: 'Actual isolated local worker; public observation only, no account creation or posting',
-  display:desktop?'desktop':'browser',onboard,
+  display:desktop?'desktop':'browser',
   outputDirectory: output, workerExitCode: worker?.status, outcome, failStartup, lockProbeExit, delivery,
   reportFiles: fs.readdirSync(output).filter(file => /^\d{6}\.json$/.test(file)),
   imageFiles: fs.readdirSync(output).filter(file => /^\d{6}\.(jpg|png)$/.test(file)) };
@@ -108,4 +108,4 @@ console.log(JSON.stringify(evidence, null, 2));
 if (failStartup) {
   assert.equal(worker?.status, 1); assert.equal(outcome?.result.status, 'failed'); assert.equal(outcome?.result.stage, 'startup');
   assert.equal(outcome.reportCount, 2); assert.equal(evidence.imageFiles.length, 0);
-} else if (worker?.status !== 0 || outcome?.result.status !== (onboard?'needs-account':'observed')) process.exitCode = 1;
+} else if (worker?.status !== 0 || outcome?.result.status !== 'observed') process.exitCode = 1;

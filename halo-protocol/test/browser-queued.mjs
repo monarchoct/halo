@@ -91,7 +91,7 @@ try {
   fs.writeFileSync(path.join(stateDirectory, 'acceptance-database.json'), JSON.stringify({ url: url.toString() }), { mode: 0o600 });
   fs.writeFileSync(path.join(root, 'test-results/browser-queued.json'), JSON.stringify({ checkedAt: new Date().toISOString(), databaseName, image, agent,
     chainId: deployment.chainId, newTransactionsSubmittedByTest: 0, externalSocialPosts: 0, automaticAccountCreation: false,
-    scope: 'Actual PostgreSQL launch intent, Linux container/profile lock, sandboxed Chromium FOMO onboarding and signed relay; no authenticated account or post',
+    scope: 'Actual PostgreSQL launch intent, Linux container/profile lock, sandboxed Chromium FOMO publication attempt and signed relay; no authenticated account or post',
     jobId: execution.jobId, executionId: execution.executionId, sessionId: journal.sessionId, reportCount: frames.length, imageCount, leaseRenewals: renewals,
     containersCleaned: execution.containersCleaned, reportsDelivered: execution.reportsDelivered, databaseState: row.state,
     browserOutcome: execution.result, prepared: row.prepared_payload, executionDirectory: execution.executionDirectory, frames, passed }, null, 2));

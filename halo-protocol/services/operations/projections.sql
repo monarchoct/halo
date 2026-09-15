@@ -17,8 +17,8 @@ CREATE OR REPLACE VIEW public.halo_public_social WITH (security_barrier=true) AS
       AND prepared_payload->>'nonce'=payload->>'nonce' AND prepared_payload->>'platform'=payload->>'platform'
       AND prepared_payload->>'receipt'=payload->>'transactionHash'
       AND length(prepared_payload->>'text')<=2000 THEN prepared_payload->>'text' END AS thesis,
-    CASE WHEN last_result->>'status' IN ('browser-started','needs-account','account-mismatch','composer-unconfigured',
-      'site-unavailable','site-not-ready','drafted','failed','posted') THEN last_result->>'status' END AS outcome,
+    CASE WHEN last_result->>'status' IN ('browser-started','api-started','needs-connection','needs-account','account-mismatch',
+      'composer-unconfigured','site-unavailable','site-not-ready','credentials-expired','rate-limited','drafted','uncertain','failed','posted') THEN last_result->>'status' END AS outcome,
     CASE WHEN state='delivered' AND last_result->>'status'='posted' THEN last_result->>'postUrl' END AS post_url,
     CASE WHEN state='delivered' AND last_result->>'status'='posted' THEN last_result->>'profileUrl' END AS profile_url
   FROM public.halo_outbox WHERE topic='social-post';
@@ -26,7 +26,13 @@ CREATE OR REPLACE VIEW public.halo_public_social WITH (security_barrier=true) AS
 CREATE OR REPLACE VIEW public.halo_public_mail WITH (security_barrier=true) AS
   SELECT deployment_id, agent, state, verified_at, created_at FROM public.halo_agent_inboxes;
 
+-- Never selects connect_message, connect_signature, connected_by or secret_ref: only the
+-- non-secret connection state a website may show. Writes to halo_social_bindings always go
+-- through the creator-signature-verified connect/disconnect API, never through this view.
+CREATE OR REPLACE VIEW public.halo_public_social_bindings WITH (security_barrier=true) AS
+  SELECT deployment_id, agent, platform, profile_url, method, state, created_at FROM public.halo_social_bindings;
+
 -- These views are not update surfaces even if a broad default grant exists.
-REVOKE ALL ON public.halo_public_deployments,public.halo_public_jobs,public.halo_public_social,public.halo_public_mail FROM PUBLIC;
+REVOKE ALL ON public.halo_public_deployments,public.halo_public_jobs,public.halo_public_social,public.halo_public_mail,public.halo_public_social_bindings FROM PUBLIC;
 CREATE INDEX IF NOT EXISTS halo_social_public_history ON public.halo_outbox(deployment_id,(payload->>'agent'),created_at DESC,id DESC)
   WHERE topic='social-post';

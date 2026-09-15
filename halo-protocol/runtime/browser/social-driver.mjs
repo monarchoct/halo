@@ -46,7 +46,7 @@ export async function screenIsPublic(page, platform) {
 
 export async function runSocialTask({ page, job, binding, report, journal }) {
   const platform = SOCIAL_PLATFORMS[job.platform];
-  if (!platform || !['observe', 'onboard', 'publish'].includes(job.task)) throw new Error('Unsupported social task');
+  if (!platform || !['observe', 'publish'].includes(job.task)) throw new Error('Unsupported social task');
   const response = await page.goto(platform.landing, { waitUntil: 'domcontentloaded', timeout: 30000 });
   if (!response?.ok()) return { status: 'site-unavailable', httpStatus: response?.status() ?? null };
   // A loaded HTML shell is not an observed application. Wait for the configured identity
@@ -55,15 +55,9 @@ export async function runSocialTask({ page, job, binding, report, journal }) {
   catch { return { status: binding ? 'account-mismatch' : 'site-not-ready', platform: job.platform }; }
   await report({ activity: `Opening ${job.platform === 'x' ? 'X' : 'FOMO'} in the isolated browser.`, state: 'viewing' });
   if (job.task === 'observe') return { status: 'observed', platform: job.platform };
-  if (!binding) {
-    const entry = control(page, platform.loginButton);
-    if (await isVisible(entry)) {
-      await report({ activity: 'Opening account setup. Authentication screens are private.', state: 'private' });
-      await entry.click({ timeout: 5000 });
-    }
-    await report({ activity: 'An account must be connected before this operator can publish.', state: 'needs-account' });
-    return { status: 'needs-account', platform: job.platform };
-  }
+  // The creator connects accounts out of band (OAuth for X; an isolated browser-session
+  // connect flow for FOMO). This worker only ever publishes into an already-connected account.
+  if (!binding) throw new Error('Publish task requires an already-connected account binding');
   const profile = new URL(binding.profileUrl);
   if (profile.origin !== platform.origin || profile.username || profile.password || profile.search || profile.hash) throw new Error('Profile must belong to the selected platform');
   const identity = control(page, binding.identity);
@@ -71,7 +65,6 @@ export async function runSocialTask({ page, job, binding, report, journal }) {
     await report({ activity: 'The connected account could not be matched to its configured public profile.', state: 'needs-account' });
     return { status: 'account-mismatch' };
   }
-  if (job.task === 'onboard') return { status: 'account-visible', profileUrl: profile.href };
   if (!binding.openComposer || !binding.editor || !binding.submit || !binding.postContainer || !binding.postLink || !binding.postAuthor) return { status: 'composer-unconfigured' };
   if (!job.text?.trim() || job.text.length > 2000) throw new Error('A bounded public thesis is required');
   const fingerprint = publicationFingerprint(job, profile.href);
