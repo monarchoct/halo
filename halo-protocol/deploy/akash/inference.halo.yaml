@@ -1,0 +1,68 @@
+# HALO shared inference on Akash — llama.cpp server (official CUDA image) serving the pinned public Qwen3.5-4B Q8_0
+# release with an OpenAI-compatible API. The weights land on a persistent volume once, verified by SHA-256.
+# Paste into Akash Console → Deploy → "Build your own" (SDL). Replace HALO_INFERENCE_KEY before deploying.
+version: "2.0"
+services:
+  inference:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    command: ["/bin/sh", "-c"]
+    args:
+      - |
+        set -e
+        F=/models/Qwen_Qwen3.5-4B-Q8_0.gguf
+        SHA=5c74c0ede371924357dff0cb6ba145bd67208b9b2389ded681adfff3f7608db7
+        if [ ! -f "$F" ] || ! echo "$SHA  $F" | sha256sum -c - >/dev/null 2>&1; then
+          echo "downloading pinned model release"
+          curl -L --retry 5 --retry-delay 10 -o "$F" "https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/4168f45a16a1290d65a4ec0fa312ae917a4c15d6/Qwen_Qwen3.5-4B-Q8_0.gguf"
+          echo "$SHA  $F" | sha256sum -c -
+        fi
+        exec /app/llama-server --model "$F" --alias halo-qwen35-4b-v1 --host 0.0.0.0 --port 8080 \
+          --api-key "$HALO_INFERENCE_KEY" --ctx-size 8192 --parallel 4 --n-gpu-layers 99 --flash-attn on --metrics
+    env:
+      - HALO_INFERENCE_KEY=REPLACE_WITH_A_LONG_RANDOM_SECRET
+    expose:
+      - port: 8080
+        as: 80
+        to:
+          - global: true
+    params:
+      storage:
+        weights:
+          mount: /models
+          readOnly: false
+profiles:
+  compute:
+    inference:
+      resources:
+        cpu:
+          units: 4
+        memory:
+          size: 16Gi
+        gpu:
+          units: 1
+          attributes:
+            vendor:
+              nvidia:
+                - model: rtx4090
+                - model: rtx3090
+                - model: a5000
+                - model: a6000
+                - model: l4
+        storage:
+          - size: 10Gi
+          - name: weights
+            size: 20Gi
+            attributes:
+              persistent: true
+              class: beta2
+  placement:
+    any:
+      pricing:
+        inference:
+          denom: uakt
+          amount: 100000
+deployment:
+  inference:
+    any:
+      profile: inference
+      count: 1
