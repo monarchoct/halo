@@ -34,9 +34,9 @@ screens.{$HALO_DOMAIN} {
 	}
 }
 artifacts.{$HALO_DOMAIN} {
-	# Read-only public gateway for content-addressed artifacts; the write endpoint stays private.
-	reverse_proxy ipfs:8080
-	header Cache-Control "public, max-age=31536000, immutable"
+	# Manifest publication (POST /v1/manifests, replicated to three peers) and integrity-checked reads (GET /ipfs/:cid).
+	reverse_proxy artifacts:8790
+	encode zstd gzip
 }
 inference.{$HALO_DOMAIN} {
 	# HTTPS front for the Akash llama.cpp lease (the runtime refuses plain-HTTP inference backends off loopback).

@@ -1,8 +1,8 @@
 # HALO on one Linux host (Phase 2)
 
-What runs here: PostgreSQL 17, the read API (with the history journal), the operations service (with the social connect surface), both live relays (with PostgreSQL fan-out), one operator, three IPFS peers (the runtime replicates every artifact to at least three stores), and Caddy for HTTPS. The website is served from Cloudflare and points at these hostnames. Browser workspaces are started per agent by the social worker on this same host.
+What runs here: PostgreSQL 17, the read API (with the history journal), the artifact service (manifest publication to three IPFS peers), the operations service (with the social connect surface), both live relays (with PostgreSQL fan-out), one operator, three IPFS peers (the runtime replicates every artifact to at least three stores), and Caddy for HTTPS. The website is served from Cloudflare and points at these hostnames. Browser workspaces are started per agent by the social worker on this same host.
 
-Everything runs from one reviewed image (`deploy/runtime/Dockerfile`, entrypoint modes `api`, `operations`, `relays`, `operator`, `social`, `identity`, `migrate`).
+Everything runs from one reviewed image (`deploy/runtime/Dockerfile`, entrypoint modes `api`, `operations`, `relays`, `artifacts`, `operator`, `social`, `identity`, `migrate`).
 
 ## 1. Host
 
@@ -21,9 +21,9 @@ DNS: `api`, `operations`, `live`, `screens`, `artifacts`, `inference`, `ipfs-one
 ```
 /srv/halo/
   compose.yaml   Caddyfile   .env          (from this directory)
-  config/        api.json operations.json relays.json operator.json migrate.json deployment.json
+  config/        api.json operations.json relays.json artifacts.json operator.json migrate.json deployment.json
                  postgres/init/roles.sql   (creates the restricted reader and the operator roles)
-  secrets/       postgres_admin  migrate.env  operations.env  relays.env  operator.env  caddy.env  operator.key  social/
+  secrets/       postgres_admin  migrate.env  operations.env  relays.env  artifacts.env  operator.env  caddy.env  operator.key  social/
 ```
 
 Templates for every config are in `config/`. `deployment.json` comes from `scripts/deploy-public.mjs`. Secrets are files with mode 0600 owned by `halo`; the `*.env` files carry only database URLs and the X client id/secret, named exactly as the configs' `*Environment` fields.

@@ -1,0 +1,24 @@
+{
+  "deploymentFile": "deployment.json",
+  "host": "0.0.0.0",
+  "port": 8790,
+  "origin": "https://artifacts.halo.example.com",
+  "allowedOrigins": [
+    "https://halo.example.com",
+    "https://www.halo.example.com"
+  ],
+  "ipfsPeers": [
+    {
+      "apiUrl": "https://ipfs-one.halo.example.com",
+      "authorizationEnvironment": "HALO_IPFS_PEER_AUTH"
+    },
+    {
+      "apiUrl": "https://ipfs-two.halo.example.com",
+      "authorizationEnvironment": "HALO_IPFS_PEER_AUTH"
+    },
+    {
+      "apiUrl": "https://ipfs-three.halo.example.com",
+      "authorizationEnvironment": "HALO_IPFS_PEER_AUTH"
+    }
+  ]
+}
