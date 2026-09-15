@@ -20,3 +20,10 @@ artifacts.{$HALO_DOMAIN} {
 	reverse_proxy ipfs:8080
 	header Cache-Control "public, max-age=31536000, immutable"
 }
+inference.{$HALO_DOMAIN} {
+	# HTTPS front for the Akash llama.cpp lease (the runtime refuses plain-HTTP inference backends off loopback).
+	# The bearer key still travels with every request; Caddy only adds TLS. Upstream comes from .env.
+	@allowed path /v1/chat/completions /v1/models /health
+	reverse_proxy @allowed {$HALO_INFERENCE_UPSTREAM} { transport http { read_timeout 180s } }
+	respond 404
+}

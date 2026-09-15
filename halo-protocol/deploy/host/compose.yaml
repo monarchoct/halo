@@ -76,22 +76,32 @@ services:
     depends_on: { migrate: { condition: service_completed_successfully } }
     mem_limit: 3g
     cpus: 2
-  ipfs:
+  # The runtime replicates every artifact to at least three stores. Three local peers satisfy that on one host;
+  # replace ipfs-two/ipfs-three with authenticated pinning services (see operator.json) before mainnet.
+  ipfs: &ipfs
     image: ipfs/kubo:v0.43.0
     restart: unless-stopped
     environment: { IPFS_PROFILE: server }
     volumes: [ipfs-data:/data/ipfs]
     networks: [halo]
     logging: { driver: local, options: { max-size: "20m", max-file: "5" } }
+  ipfs-two:
+    <<: *ipfs
+    volumes: [ipfs-two-data:/data/ipfs]
+  ipfs-three:
+    <<: *ipfs
+    volumes: [ipfs-three-data:/data/ipfs]
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
     ports: ["80:80", "443:443"]
     volumes: [./Caddyfile:/etc/caddy/Caddyfile:ro, caddy-data:/data, caddy-config:/config]
-    environment: { HALO_DOMAIN: "${HALO_DOMAIN:?Set the public domain}" }
+    environment:
+      HALO_DOMAIN: "${HALO_DOMAIN:?Set the public domain}"
+      HALO_INFERENCE_UPSTREAM: "${HALO_INFERENCE_UPSTREAM:-127.0.0.1:9}"
     networks: [halo]
     logging: { driver: local, options: { max-size: "20m", max-file: "5" } }
 secrets:
   postgres_admin: { file: ./secrets/postgres_admin }
-volumes: { postgres-data: {}, relay-steps: {}, relay-frames: {}, operator-state: {}, ipfs-data: {}, caddy-data: {}, caddy-config: {} }
+volumes: { postgres-data: {}, relay-steps: {}, relay-frames: {}, operator-state: {}, ipfs-data: {}, ipfs-two-data: {}, ipfs-three-data: {}, caddy-data: {}, caddy-config: {} }
 networks: { halo: {} }

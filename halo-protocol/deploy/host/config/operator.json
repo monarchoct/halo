@@ -2,19 +2,17 @@
   "deploymentFile": "deployment.json",
   "python": "/usr/local/bin/python3",
   "directory": "/state",
-  "operatorAddress": "0x0000000000000000000000000000000000000000",
+  "operatorAddress": "0x5Af77f3870a5b6ca7b507A95B53DAa2A5D228848",
   "operatorKeyFile": "/run/secrets/operator.key",
   "ipfsPeers": [
     {
       "apiUrl": "http://ipfs:5001"
     },
     {
-      "apiUrl": "https://pinning-service-one.example.com/api/v0",
-      "authorizationEnvironment": "HALO_IPFS_PEER_TWO_AUTH"
+      "apiUrl": "http://ipfs-two:5001"
     },
     {
-      "apiUrl": "https://pinning-service-two.example.com/api/v0",
-      "authorizationEnvironment": "HALO_IPFS_PEER_THREE_AUTH"
+      "apiUrl": "http://ipfs-three:5001"
     }
   ],
   "confirmations": 4,
@@ -29,5 +27,11 @@
   },
   "leaseSeconds": 180,
   "settleFees": true,
-  "publicModels": []
+  "publicModels": [
+    {
+      "releaseFile": "/opt/halo/models/proposal-qwen35-4b/release.json",
+      "backendUrl": "https://inference.halo.example.com/v1",
+      "authorizationEnvironment": "HALO_INFERENCE_AUTH"
+    }
+  ]
 }

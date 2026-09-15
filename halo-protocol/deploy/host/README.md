@@ -1,6 +1,6 @@
 # HALO on one Linux host (Phase 2)
 
-What runs here: PostgreSQL 17, the read API (with the history journal), the operations service (with the social connect surface), both live relays (with PostgreSQL fan-out), one operator, three-peer-capable IPFS, and Caddy for HTTPS. The website is served from Cloudflare and points at these hostnames. Browser workspaces are started per agent by the social worker on this same host.
+What runs here: PostgreSQL 17, the read API (with the history journal), the operations service (with the social connect surface), both live relays (with PostgreSQL fan-out), one operator, three IPFS peers (the runtime replicates every artifact to at least three stores), and Caddy for HTTPS. The website is served from Cloudflare and points at these hostnames. Browser workspaces are started per agent by the social worker on this same host.
 
 Everything runs from one reviewed image (`deploy/runtime/Dockerfile`, entrypoint modes `api`, `operations`, `relays`, `operator`, `social`, `identity`, `migrate`).
 
@@ -12,7 +12,9 @@ Any KVM VPS with **4 vCPU / 16 GB / 100 GB NVMe** or more (Hetzner CPX41, Hostin
 bash bootstrap.sh halo.example.com
 ```
 
-DNS: `api`, `operations`, `live`, `screens`, `artifacts` as A records to the host; Caddy issues certificates on first request.
+Then `bash set-domain.sh <domain> /srv/halo` stamps the domain into `.env`, every `config/*.json` and `deploy/testnet/config.json`.
+
+DNS: `api`, `operations`, `live`, `screens`, `artifacts`, `inference` as A records to the host; Caddy issues certificates on first request. `inference.<domain>` is only a TLS front for the Akash llama.cpp lease (`HALO_INFERENCE_UPSTREAM` in `.env`); the operator's `publicModels` entry points at it and sends `HALO_INFERENCE_AUTH` (`Bearer <key>`, in `secrets/operator.env`).
 
 ## 2. Files
 
@@ -34,9 +36,7 @@ The runtime refuses unencrypted PostgreSQL outside local mode, so the container 
 mkdir -p /srv/halo/tls && cd /srv/halo/tls
 openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 3650 -subj "/CN=HALO internal CA" -keyout ca.key -out ca.crt
 openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -subj "/CN=postgres" -keyout server.key -out server.csr
-printf 'subjectAltName=DNS:postgres
-extendedKeyUsage=serverAuth
-' > san.cnf
+printf 'subjectAltName=DNS:postgres\nextendedKeyUsage=serverAuth\n' > san.cnf
 openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -days 3650 -extfile san.cnf -out server.crt
 chown 999:999 server.key server.crt && chmod 600 server.key && cp ca.crt /srv/halo/config/postgres-ca.crt
 ```
