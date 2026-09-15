@@ -7,6 +7,7 @@ import { decodeEventLog, keccak256, toHex, verifyMessage } from 'viem';
 import { traceMessage } from '../../runtime/trace.mjs';
 import { assertSupportedDeployment } from '../../sdk/networks.mjs';
 import { evidenceUri } from '../../sdk/artifacts.mjs';
+import { createFanout } from '../relay/fanout.mjs';
 
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/), hash = z.string().regex(/^0x[0-9a-f]{64}$/);
 const schema = z.object({ hash, signature: z.string().regex(/^0x[0-9a-fA-F]{130}$/), step: z.object({
@@ -16,14 +17,14 @@ const schema = z.object({ hash, signature: z.string().regex(/^0x[0-9a-fA-F]{130}
   summary: z.string().min(1).max(2000), evidenceURI: z.string().regex(/^ipfs:\/\/b[a-z2-7]+$/).optional(), transactionHash: hash.optional(),
 }).strict() }).strict();
 
-export async function createTransparencyApi({ client, deployment, artifacts, directory,
+export async function createTransparencyApi({ client, deployment, artifacts, directory, fanout = createFanout({ maxViewers: 100 }),
   allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'] }) {
   assertSupportedDeployment(deployment);
   if (await client.getChainId() !== deployment.chainId) throw new Error('Transparency RPC targets another chain');
   fs.mkdirSync(directory, { recursive: true });
   const app = Fastify({ logger: false, bodyLimit: 8192, requestTimeout: 10000 });
   await app.register(cors, { origin: allowedOrigins, methods: ['GET', 'POST'] });
-  const watchers = new Map(), recent = [], indexed = new Map();
+  const recent = [], indexed = new Map();
   async function receiptMatches(step) {
     if (!step.transactionHash) return false;
     const receipt = await client.getTransactionReceipt({ hash: step.transactionHash });
@@ -80,20 +81,21 @@ export async function createTransparencyApi({ client, deployment, artifacts, dir
     const stored = { ...record, verification };
     fs.writeFileSync(path.join(directory, `${step.runId}-${String(step.index).padStart(2, '0')}.json`), JSON.stringify(stored));
     indexed.set(key, stored); recent.push(stored);
-    for (const response of watchers.get(step.agent.toLowerCase()) ?? []) response.write(`data: ${JSON.stringify(stored)}\n\n`);
+    await fanout.publish(step.agent, JSON.stringify(stored));
     return { accepted: true, verification };
   });
   app.get('/v1/agents/:agent/stream', async (request, reply) => {
     const agent = address.parse(request.params.agent).toLowerCase();
-    if ([...watchers.values()].reduce((sum, set) => sum + set.size, 0) >= 100) return reply.code(503).send({ error: 'Live viewer capacity reached' });
+    const write = encoded => reply.raw.write(`data: ${encoded}\n\n`);
+    const unsubscribe = fanout.subscribe(agent, write);
+    if (!unsubscribe) return reply.code(503).send({ error: 'Live viewer capacity reached' });
     reply.hijack();
     const origin = allowedOrigins.includes(request.headers.origin) ? request.headers.origin : allowedOrigins[0];
     reply.raw.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'Access-Control-Allow-Origin': origin });
     for (const record of list(agent)) reply.raw.write(`data: ${JSON.stringify(record)}\n\n`);
-    const set = watchers.get(agent) ?? new Set(); watchers.set(agent, set); set.add(reply.raw);
     const timer = setInterval(() => reply.raw.write(': heartbeat\n\n'), 25000);
-    request.raw.on('close', () => { clearInterval(timer); set.delete(reply.raw); if (!set.size) watchers.delete(agent); });
+    request.raw.on('close', () => { clearInterval(timer); unsubscribe(); });
   });
-  app.addHook('onClose', async () => { for (const set of watchers.values()) for (const response of set) response.end(); });
+  app.addHook('onClose', async () => { await fanout.close(); });
   return app;
 }

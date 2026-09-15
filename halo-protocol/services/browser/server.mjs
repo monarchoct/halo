@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { keccak256, toHex, verifyMessage } from 'viem';
 import { browserFrameMessage, imageDigest, imageInfo } from '../../runtime/browser/frames.mjs';
 import { assertSupportedDeployment } from '../../sdk/networks.mjs';
+import { createFanout } from '../relay/fanout.mjs';
 
 const hash = z.string().regex(/^0x[0-9a-f]{64}$/), address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 export const frameSchema = z.object({ version: z.literal('halo.browser-frame.v1'), chainId: z.number().int(),
@@ -19,13 +20,13 @@ export const frameSchema = z.object({ version: z.literal('halo.browser-frame.v1'
 const schema = z.object({ frame: frameSchema, hash, signature: z.string().regex(/^0x[0-9a-fA-F]{130}$/), pngBase64: z.string().max(2800000).optional() }).strict();
 
 export async function createBrowserApi({ client, deployment, artifacts, directory, retentionMs = 86400000, clock = Date.now,
-  maxStoredBytes = 120 * 1024 * 1024, allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'] }) {
+  maxStoredBytes = 120 * 1024 * 1024, fanout = createFanout({ maxViewers: 100 }), allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'] }) {
   assertSupportedDeployment(deployment);
   if (await client.getChainId() !== deployment.chainId) throw new Error('Browser relay targets another chain');
   fs.mkdirSync(directory, { recursive: true });
   const app = Fastify({ logger: false, bodyLimit: 2900000, requestTimeout: 10000 });
   await app.register(cors, { origin: allowedOrigins });
-  const history = [], heads = new Map(), records = new Map(), watchers = new Map();
+  const history = [], heads = new Map(), records = new Map();
   let storedBytes = 0;
   const jsonPath = hash => path.join(directory, `${hash.slice(2)}.json`);
   const pngPath = hash => path.join(directory, `${hash.slice(2)}.image`);
@@ -60,7 +61,7 @@ export async function createBrowserApi({ client, deployment, artifacts, director
   prune();
   const list = agent => history.filter(value => value.frame.agent.toLowerCase() === agent.toLowerCase()).slice(-120);
   app.setErrorHandler((error, _request, reply) => reply.code(error instanceof z.ZodError ? 400 : 503).send({ error: 'Invalid or unavailable browser report' }));
-  app.get('/health', () => ({ service: 'halo-browser-relay', storedBytes, liveViewers: [...watchers.values()].reduce((n, set) => n + set.size, 0),
+  app.get('/health', () => ({ service: 'halo-browser-relay', storedBytes, liveViewers: fanout.viewers,
     verification: 'Operator-signed screen reports. No claim of exclusive model control.' }));
   app.get('/v1/agents/:agent/browser', request => { prune(); return { frames: list(address.parse(request.params.agent)) }; });
   app.get('/v1/browser/frames/:hash', (request, reply) => {
@@ -103,24 +104,24 @@ export async function createBrowserApi({ client, deployment, artifacts, director
       if (png) { fs.writeFileSync(pngPath(value.hash), png); storedBytes += png.length; }
       fs.writeFileSync(jsonPath(value.hash), encoded); storedBytes += Buffer.byteLength(encoded);
       history.push(record); records.set(record.hash, record); heads.set(frame.sessionId, record); prune();
-      for (const response of watchers.get(frame.agent.toLowerCase()) ?? []) {
-        if (response.writableLength > 128000) response.end(); else response.write(`data: ${encoded}\n\n`);
-      }
+      await fanout.publish(frame.agent, encoded);
       return { accepted: true };
     });
     admission = operation.catch(() => {}); return operation;
   });
   app.get('/v1/agents/:agent/browser/stream', (request, reply) => {
     const agent = address.parse(request.params.agent).toLowerCase();
-    if ([...watchers.values()].reduce((n, set) => n + set.size, 0) >= 100) return reply.code(503).send({ error: 'Viewer capacity reached' });
+    // A slow viewer is disconnected rather than allowed to buffer without bound.
+    const write = encoded => { if (reply.raw.writableLength > 128000) reply.raw.end(); else reply.raw.write(`data: ${encoded}\n\n`); };
+    const unsubscribe = fanout.subscribe(agent, write);
+    if (!unsubscribe) return reply.code(503).send({ error: 'Viewer capacity reached' });
     prune(); reply.hijack();
     reply.raw.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive',
       'Access-Control-Allow-Origin': allowedOrigins.includes(request.headers.origin) ? request.headers.origin : allowedOrigins[0] });
     for (const record of list(agent)) reply.raw.write(`data: ${JSON.stringify(record)}\n\n`);
-    const set = watchers.get(agent) ?? new Set(); watchers.set(agent, set); set.add(reply.raw);
     const timer = setInterval(() => reply.raw.write(': heartbeat\n\n'), 25000);
-    request.raw.on('close', () => { clearInterval(timer); set.delete(reply.raw); if (!set.size) watchers.delete(agent); });
+    request.raw.on('close', () => { clearInterval(timer); unsubscribe(); });
   });
-  app.addHook('onClose', async () => { for (const set of watchers.values()) for (const response of set) response.end(); });
+  app.addHook('onClose', async () => { await fanout.close(); });
   return app;
 }

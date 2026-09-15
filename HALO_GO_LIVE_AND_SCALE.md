@@ -8,7 +8,7 @@ Companion to `HALO_GO_LIVE_AND_SCALE.html` (the same plan as a page) and `HALO_P
 |---|---|---|
 | Website | Cloudflare Workers + CDN (already the build target) | Edge — no origin load |
 | Read APIs | 2 Fastify replicas behind HTTPS LB (Hetzner / DigitalOcean, 8 vCPU / 32 GB) | Stateless; add replicas. 15 s snapshot cache + candle tables |
-| Live relays | SSE relays for signed steps and frames | Add a Redis pub/sub so any relay serves any stream (frame journal is in-memory today) |
+| Live relays | SSE relays for signed steps and frames | Fan-out is built in: set the relay bus to PostgreSQL LISTEN/NOTIFY and any relay serves any stream |
 | Operators | 2 independent Linux Docker hosts, own gas keys, PostgreSQL-leased jobs | Add operators; 100 agents = 9,600 cycles/day ≈ 1 every 9 s; prover does 100 proofs / 118 s on 2 CPUs |
 | Inference & workspaces | Akash GPU (vLLM, 2 providers, weights on persistent volume); workspaces optionally sharded on Akash with encrypted profile snapshots | Note: Akash cannot grant Chromium's kernel sandbox — container-only isolation, stamped on frames; else keep workspaces on Docker hosts |
 | State | Managed PostgreSQL 17 (TLS, backups, cross-provider restore drill); 3 IPFS copies (1 Kubo + 2 pinning services); KMS behind the secret-store interface | — |
@@ -25,11 +25,11 @@ Platform stability and per-agent viability are different questions: with default
 
 1. **Push to GitHub; CI green** — runs the PostgreSQL, Docker and container-isolation suites this PC cannot. *Owner, 30 min.*
 2. **Accounts** — GHCR, Hetzner/DO project with MFA, managed PostgreSQL, dedicated Robinhood RPC, two IPFS pinning services, X developer app (redirect `https://<domain>/connect/x`), Akash Console with card billing. *Owner, one afternoon.*
-3. **Build and publish images** by digest from CI. *Automatic once secrets exist.*
+3. **Build and publish images** by digest from CI; **deploy contracts** with `scripts/deploy-public.mjs` from `deploy/testnet/config.json` (verifies chain, PoolManager and verifier hashes). *Automatic once secrets exist.*
 4. **Minimal testnet slice** — one host, one replica, one relay, managed DB, site on Cloudflare, chain 46630 (faucet `https://faucet.testnet.chain.robinhood.com`). 2–3 agents, unattended. ≈ $60–100/month. *2 days, then wait.*
 5. **Seven-day soak + drills** — duplicate operators, abandoned job, RPC outage, reserve exhaustion/top-up, DB restore, relay down; replacement operator within 30 min. *1–2 weeks.*
 6. **Audit** — `CurveMath`, graduation path, `EzklDecisionVerifier`. Immutable vaults cannot be patched after launch. *3–6 weeks.*
-7. **Scale the topology** — second operator host, second replica/relay, second inference provider, Redis pub/sub; load test 100 agents + 100 viewers. *1 week.*
+7. **Scale the topology** — second operator host, second replica/relay, second inference provider, PostgreSQL fan-out for relays; load test 100 agents + 100 viewers. *1 week.*
 8. **Mainnet** — root HALO token, reference market and WETH as configuration; fund operators; deploy reviewed contracts; bind addresses; hand over runbooks.
 
 ## Cost envelope (planning ranges, not quotes)

@@ -50,6 +50,7 @@ jobs:
       - run: node test/workspace-entrypoint.mjs
       - run: node test/browser-sandbox-gate.mjs
       - run: node test/market-history.mjs
+      - run: node test/relay-fanout.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -128,6 +129,7 @@ jobs:
       - run: node test/agent-inboxes.mjs
       - run: node test/history-journal.mjs
       - run: node test/history-candles-journal.mjs
+      - run: node test/relay-fanout.mjs
       - name: Crash the disposable database and restart its original volume
         env:
           POSTGRES_CONTAINER: ${{ job.services.postgres.id }}

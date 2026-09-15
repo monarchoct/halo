@@ -31,6 +31,8 @@ All commands run from `halo-protocol/` with `HALO_PYTHON` pointing at the pinned
 | `test:market-history` (rewritten, 753 real events), `test/market-candles.mjs` | PASS |
 | `test:social-connect` (real chain), `test:x-oauth`, `test:secret-store` | PASS 8 + 11 + 8 |
 | `test/akash-sdl`, `akash-console-client`, `profile-snapshot`, `workspace-entrypoint`, `browser-sandbox-gate` | PASS 8 + 6 + 7 + 4 + 5 |
+| `test/relay-fanout` | PASS 4 (PostgreSQL bus variant runs in CI) |
+| `scripts/deploy-public.mjs` rehearsal on the local chain | PASS — 8 contracts, verifier hash checked |
 | Website `tsc`, `eslint`, `vinext build` | PASS — lint went from 13 errors / 9 warnings to 0 / 0; seven routes build |
 
 Not runnable here and therefore **only reviewed, not executed**: the PostgreSQL suites (`persistence`, `persistence-restart`, `social-outbox`, `agent-inboxes`, `history-journal`, `history-candles-journal`), the Docker browser-container suite, and the Linux acceptance procedures. The root CI workflow runs all of them on Linux with a PostgreSQL 17 service and Docker; **its first run on GitHub is still pending** because the repository has no remote yet.
@@ -43,8 +45,10 @@ Not runnable here and therefore **only reviewed, not executed**: the PostgreSQL 
 - **Social accounts: creator-connected, never agent-created.** The automatic signup path (`onboard`) is removed. The creator signs `HALO_SOCIAL_CONNECT_V1` with the wallet that is the vault's immutable `creator`; X connects via OAuth 2.0 PKCE and posts through X's official API; FOMO links a profile and awaits an operator-run connect session (specified, not built). Migration `0004_social_bindings.sql`, store, secret store, public `GET /v1/agents/:agent/social`, connect/disconnect routes, and the website's Social tab.
 - **Akash hosting.** SDL generator for sharded agent workspaces and GPU inference, Console API adapter (endpoints marked VERIFY), encrypted profile snapshot/restore for lease loss, and an explicit `HALO_BROWSER_UNSANDBOXED` gate that stamps `sandbox: container-only` on every signed frame. See `halo-protocol/deploy/akash/README.md`.
 - **Network activity feed.** `GET /v1/activity` and the website's Activity page.
+- **Public-network deployment script.** `scripts/deploy-public.mjs` deploys the whole contract graph from a public config with the deployer key in the environment, verifies the chain, PoolManager and token code, checks the deployed verifier against the pinned code hash, and writes the website's `deployment.json` plus a transaction report. Rehearsed end-to-end on the local chain (8 contracts). Runbook: `halo-protocol/deploy/testnet/README.md`.
+- **Relay fan-out.** Both live relays now publish through `services/relay/fanout.mjs` with an injectable bus (in-memory, or PostgreSQL LISTEN/NOTIFY for several replicas) and a configurable viewer cap, so live views scale horizontally on infrastructure that already exists.
 - **Unit economics model.** `node scripts/economics.mjs` — break-even volume and lifespan under volume decay from measured gas. With defaults, a vault must attract about **$3,400/day of attributable volume** to fund its own work.
-- **Website.** Rebuilt on a structured design system (commit `47411fd`); two further standalone design directions published for the founder's decision (`halo-design/redesign-v2`, `redesign-v3`). The React app will be re-skinned to the chosen direction; its data layer is stable.
+- **Website.** Final direction chosen by the founder and shipped: PONS layout with a full glass treatment on a midnight-navy canvas, aqua actions and lilac secondaries, no orange. The landing page is the launchpad board, as on PONS. Two standalone explorations remain in `halo-design/` for reference.
 
 ## 4. Owner-only gates (cannot be done by engineering alone)
 

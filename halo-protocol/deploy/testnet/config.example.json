@@ -1,0 +1,21 @@
+{
+  "environment": "testnet",
+  "chainId": 46630,
+  "chainName": "Robinhood Chain Testnet",
+  "rpcUrl": "https://rpc.testnet.chain.robinhood.com",
+  "explorerUrl": "https://explorer.testnet.chain.robinhood.com",
+  "rootHalo": "0x0000000000000000000000000000000000000000",
+  "operatingToken": "0x7943e237c7F95DA44E0301572D358911207852Fa",
+  "poolManager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+  "protocolFeeRecipient": "0x0000000000000000000000000000000000000000",
+  "referenceFee": 3000,
+  "minimumDepthWei": "50000000000000000000",
+  "operatingSymbol": "WETH",
+  "haloSymbol": "HALO",
+  "apiUrl": "https://api.testnet.example.invalid",
+  "historyApiUrl": "https://history.testnet.example.invalid",
+  "operationsApiUrl": "https://operations.testnet.example.invalid",
+  "artifactApiUrl": "https://artifacts.testnet.example.invalid",
+  "transparencyApiUrl": "https://live.testnet.example.invalid",
+  "browserApiUrl": "https://screens.testnet.example.invalid"
+}
