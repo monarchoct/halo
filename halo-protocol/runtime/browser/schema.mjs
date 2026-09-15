@@ -29,6 +29,9 @@ export const browserReportSchema = z.object({
   width: z.number().int().min(0).max(1920), height: z.number().int().min(0).max(1200),
   imageFile: z.string().regex(/^\d{6}\.(jpg|png)$/).optional(),
   surface: z.enum(['browser','desktop']).optional(),
+  // 'container-only' means HALO_BROWSER_UNSANDBOXED disabled Chromium's own kernel sandbox for
+  // this session (see runtime/browser/worker.mjs); viewers can see the isolation was weakened.
+  sandbox: z.enum(['kernel', 'container-only']).optional(),
 }).strict().superRefine((value, ctx) => {
   if (['private', 'needs-account', 'error'].includes(value.state) && value.imageFile)
     ctx.addIssue({ code: 'custom', message: 'Private states cannot carry images' });

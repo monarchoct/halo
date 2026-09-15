@@ -85,7 +85,7 @@ export function createBrowserForwarder({ wallet, account, deployment, agent, end
       activity: expired ? 'Browser capture expired during delivery. The recorded image is not presented as a live view.' : report.activity,
       state: expired ? 'error' : report.state, width: image ? report.width : 0, height: image ? report.height : 0,
       mimeType: image ? imageInfo(image).mimeType : null, imageHash: image ? imageDigest(image) : null,
-      ...(report.surface?{surface:report.surface}:{}) };
+      ...(report.surface?{surface:report.surface}:{}), ...(report.sandbox?{sandbox:report.sandbox}:{}) };
     const message = browserFrameMessage(frame);
     return { frame, hash: keccak256(toHex(message)), signature: await wallet.signMessage({ account, message }),
       ...(image ? { pngBase64: image.toString('base64') } : {}) };

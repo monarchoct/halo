@@ -17,8 +17,15 @@ const profile = fs.realpathSync(resolve(config.profileDirectory)), output = fs.r
 if (profile === output || output.startsWith(`${profile}${path.sep}`) || profile.startsWith(`${output}${path.sep}`)) throw new Error('Private profile and public output must be disjoint');
 const proxy = new URL(config.egressProxy);
 if (!['http:', 'https:'].includes(proxy.protocol) || proxy.username || proxy.password || proxy.pathname !== '/' || proxy.search || proxy.hash) throw new Error('Use a separate configured egress proxy origin');
+// Gated escape hatch for hosts that cannot grant Chromium's own user-namespace sandbox (e.g. a
+// Docker-less restricted pod). Off by default; explicit opt-in only, loudly logged and recorded
+// on every signed frame so a viewer can see the isolation boundary that was actually in effect.
+const unsandboxed = process.env.HALO_BROWSER_UNSANDBOXED === '1';
+if (unsandboxed) console.warn(JSON.stringify({ service: 'halo-browser-worker', level: 'warn', event: 'chromium-sandbox-disabled',
+  message: 'HALO_BROWSER_UNSANDBOXED=1: Chromium is starting with --no-sandbox. Only the surrounding container/pod boundary isolates this session; use this only where a kernel user-namespace sandbox is unavailable to the host.' }));
 let context, page, interval, desktop, stage = 'startup';
-const writer = createReportWriter({ getPage: () => page, job: config, directory: output, captureDesktop:(page,platform)=>desktop?.capture(page,platform) });
+const writer = createReportWriter({ getPage: () => page, job: config, directory: output, captureDesktop:(page,platform)=>desktop?.capture(page,platform),
+  sandbox: unsandboxed ? 'container-only' : 'kernel' });
 const report = value => writer.report(value);
 let capturing = false, expired = false;
 const deadline = setTimeout(() => { expired = true; context?.close().catch(() => {}); }, config.maxRunSeconds * 1000);
@@ -34,10 +41,11 @@ const journal = {
 };
 let result;
 try {
-  await report({ activity: 'Starting the isolated browser with its sandbox enabled.', state: 'private' });
+  await report({ activity: unsandboxed ? 'Starting the isolated browser with its kernel sandbox disabled (HALO_BROWSER_UNSANDBOXED).' : 'Starting the isolated browser with its sandbox enabled.', state: 'private' });
   if(config.display==='desktop')desktop=await startDesktop();
-  context = await chromium.launchPersistentContext(profile, { headless: !desktop, chromiumSandbox: true,
-    ...(desktop?{env:desktop.env,args:['--window-position=0,0','--window-size=1280,800'],viewport:null}:{}),
+  const chromeArgs = [...(desktop?['--window-position=0,0','--window-size=1280,800']:[]), ...(unsandboxed?['--no-sandbox']:[])];
+  context = await chromium.launchPersistentContext(profile, { headless: !desktop, chromiumSandbox: !unsandboxed,
+    ...(chromeArgs.length?{args:chromeArgs}:{}), ...(desktop?{env:desktop.env,viewport:null}:{}),
     timeout: Math.min(60000, config.maxRunSeconds * 1000),
     proxy: { server: proxy.origin }, ...(!desktop?{viewport:{width:1280,height:720}}:{}), acceptDownloads: false, serviceWorkers: 'block',
     permissions: [], locale: 'en-US', ignoreHTTPSErrors: false });
