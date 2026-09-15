@@ -1,6 +1,7 @@
 # HALO shared inference on Akash — llama.cpp server (official CUDA image) serving the pinned public Qwen3.5-4B Q8_0
 # release with an OpenAI-compatible API. Weights are downloaded on start and verified by SHA-256 (4.6 GB, ~2 min).
-# Broad match on purpose: any NVIDIA GPU, ephemeral disk, so the marketplace returns bids. Tighten later if wanted.
+# GPU list is deliberate: every card here has >= 16 GB and a supported CUDA architecture. Do not widen it to
+# "any NVIDIA" — small cards (e.g. P2000 5 GB) then bid and the model cannot load.
 # Paste into Akash Console → Deploy → "Build your own" (SDL). Replace HALO_INFERENCE_KEY before deploying.
 version: "2.0"
 services:
@@ -40,6 +41,19 @@ profiles:
           attributes:
             vendor:
               nvidia:
+                - model: rtx3090
+                - model: rtx4090
+                - model: rtx5090
+                - model: rtxa5000
+                - model: a5000
+                - model: rtxa6000
+                - model: a6000
+                - model: l4
+                - model: a10
+                - model: l40
+                - model: l40s
+                - model: a100
+                - model: h100
         storage:
           - size: 30Gi
   placement:
