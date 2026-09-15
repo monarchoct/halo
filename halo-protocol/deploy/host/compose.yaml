@@ -1,0 +1,94 @@
+# HALO — one-host production stack (Phase 2). Copy .env.example to .env, fill it, then `docker compose up -d`.
+# Everything runs as UID 1000 in read-only containers; only Caddy listens on the public interface.
+# The browser workspaces are started per agent by the social worker through the Docker socket of THIS host only
+# (never mounted into a workspace container).
+name: halo
+x-runtime: &runtime
+  image: ${HALO_RUNTIME_IMAGE:?Set the runtime image digest}
+  user: "1000:1000"
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 256
+  tmpfs: [/tmp:rw,nosuid,nodev,size=256m,uid=1000,gid=1000]
+  restart: unless-stopped
+  stop_grace_period: 180s
+  logging: { driver: local, options: { max-size: "20m", max-file: "5" } }
+  networks: [halo]
+services:
+  postgres:
+    image: postgres:17.11@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: halo_admin
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin
+      POSTGRES_DB: halo
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./config/postgres/init:/docker-entrypoint-initdb.d:ro
+    secrets: [postgres_admin]
+    healthcheck: { test: [CMD, pg_isready, -U, halo_admin, -d, halo], interval: 10s, timeout: 5s, retries: 12 }
+    networks: [halo]
+    logging: { driver: local, options: { max-size: "20m", max-file: "5" } }
+  migrate:
+    <<: *runtime
+    restart: "no"
+    command: [migrate, /config/migrate.json]
+    env_file: ./secrets/migrate.env
+    volumes: [{ type: bind, source: ./config, target: /config, read_only: true }]
+    depends_on: { postgres: { condition: service_healthy } }
+  api:
+    <<: *runtime
+    command: [api, /config/api.json]
+    volumes: [{ type: bind, source: ./config, target: /config, read_only: true }]
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    healthcheck: { test: [CMD, node, -e, "fetch('http://127.0.0.1:8787/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"], interval: 30s, timeout: 5s, retries: 3 }
+  operations:
+    <<: *runtime
+    command: [operations, /config/operations.json]
+    env_file: ./secrets/operations.env
+    volumes:
+      - { type: bind, source: ./config, target: /config, read_only: true }
+      - { type: bind, source: ./secrets/social, target: /secrets/social }
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    healthcheck: { test: [CMD, node, -e, "fetch('http://127.0.0.1:8796/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"], interval: 30s, timeout: 5s, retries: 3 }
+  relays:
+    <<: *runtime
+    command: [relays, /config/relays.json]
+    env_file: ./secrets/relays.env
+    volumes:
+      - { type: bind, source: ./config, target: /config, read_only: true }
+      - relay-steps:/state/steps
+      - relay-frames:/state/frames
+    depends_on: { migrate: { condition: service_completed_successfully } }
+  operator:
+    <<: *runtime
+    command: [operator, /config/operator.json, --execute]
+    env_file: ./secrets/operator.env
+    volumes:
+      - { type: bind, source: ./config, target: /config, read_only: true }
+      - { type: bind, source: ./secrets/operator.key, target: /run/secrets/operator.key, read_only: true }
+      - operator-state:/state
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    mem_limit: 3g
+    cpus: 2
+  ipfs:
+    image: ipfs/kubo:v0.43.0
+    restart: unless-stopped
+    environment: { IPFS_PROFILE: server }
+    volumes: [ipfs-data:/data/ipfs]
+    networks: [halo]
+    logging: { driver: local, options: { max-size: "20m", max-file: "5" } }
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes: [./Caddyfile:/etc/caddy/Caddyfile:ro, caddy-data:/data, caddy-config:/config]
+    environment: { HALO_DOMAIN: "${HALO_DOMAIN:?Set the public domain}" }
+    networks: [halo]
+    logging: { driver: local, options: { max-size: "20m", max-file: "5" } }
+secrets:
+  postgres_admin: { file: ./secrets/postgres_admin }
+volumes: { postgres-data: {}, relay-steps: {}, relay-frames: {}, operator-state: {}, ipfs-data: {}, caddy-data: {}, caddy-config: {} }
+networks: { halo: {} }

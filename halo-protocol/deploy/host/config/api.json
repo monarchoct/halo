@@ -1,0 +1,7 @@
+{
+  "deploymentFile": "deployment.json",
+  "host": "0.0.0.0",
+  "port": 8787,
+  "historyDatabaseFile": "history-database.json",
+  "allowedOrigins": ["https://halo.example.com", "https://www.halo.example.com"]
+}

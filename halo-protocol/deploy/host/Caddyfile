@@ -1,0 +1,22 @@
+# Public HTTPS edge for the HALO services. Certificates are issued automatically by Caddy.
+# The website itself is served from Cloudflare; these hostnames are what deployment.json points at.
+api.{$HALO_DOMAIN} {
+	reverse_proxy api:8787
+	header Cache-Control "public, max-age=5"
+	encode zstd gzip
+}
+operations.{$HALO_DOMAIN} {
+	reverse_proxy operations:8796
+	encode zstd gzip
+}
+live.{$HALO_DOMAIN} {
+	reverse_proxy relays:8791 { flush_interval -1 }
+}
+screens.{$HALO_DOMAIN} {
+	reverse_proxy relays:8795 { flush_interval -1 }
+}
+artifacts.{$HALO_DOMAIN} {
+	# Read-only public gateway for content-addressed artifacts; the write endpoint stays private.
+	reverse_proxy ipfs:8080
+	header Cache-Control "public, max-age=31536000, immutable"
+}

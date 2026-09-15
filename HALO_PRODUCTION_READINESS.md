@@ -37,7 +37,7 @@ All commands run from `halo-protocol/` with `HALO_PYTHON` pointing at the pinned
 
 Not runnable here and therefore **only reviewed, not executed**: the PostgreSQL suites (`persistence`, `persistence-restart`, `social-outbox`, `agent-inboxes`, `history-journal`, `history-candles-journal`), the Docker browser-container suite, and the Linux acceptance procedures. The root CI workflow runs all of them on Linux with a PostgreSQL 17 service and Docker; **its first run on GitHub is still pending** because the repository has no remote yet.
 
-`test:transparency` still fails locally for a fixture reason: the dev stack seeds its demo agents with placeholder manifest URIs (`https://example.invalid/…`), so an operator cycle against them cannot recover a manifest. It passes only after an agent is created the way the website creates one (manifest pinned through the artifact service) and one operator cycle completes. This is a dev-fixture limitation, not a runtime defect; it is listed in §6.
+`test:transparency` **passes (6/6)** once an agent exists that was created the way the website creates one: `scripts/create-agent.mjs` created, funded and activated the agent `Vega`, a real operator cycle launched its first child coin (confirmed receipt), and the suite then verified signatures, replay protection, step history, receipt beneficiary, chain binding and restart. The dev stack's seeded demo agents carry placeholder manifests and cannot be driven by an operator; use the script or the website.
 
 ## 3. Features completed today
 
@@ -47,6 +47,8 @@ Not runnable here and therefore **only reviewed, not executed**: the PostgreSQL 
 - **Network activity feed.** `GET /v1/activity` and the website's Activity page.
 - **Public-network deployment script.** `scripts/deploy-public.mjs` deploys the whole contract graph from a public config with the deployer key in the environment, verifies the chain, PoolManager and token code, checks the deployed verifier against the pinned code hash, and writes the website's `deployment.json` plus a transaction report. Rehearsed end-to-end on the local chain (8 contracts). Runbook: `halo-protocol/deploy/testnet/README.md`.
 - **Relay fan-out.** Both live relays now publish through `services/relay/fanout.mjs` with an injectable bus (in-memory, or PostgreSQL LISTEN/NOTIFY for several replicas) and a configurable viewer cap, so live views scale horizontally on infrastructure that already exists.
+- **First working agent.** `scripts/create-agent.mjs` creates, funds and activates an agent from a key in the environment (local or public network); one operator cycle then launched a child coin and the transparency suite passed.
+- **One-host production bundle.** `deploy/host/`: Compose stack (PostgreSQL 17, API with history, operations with social connect, both relays with PostgreSQL fan-out, operator, Kubo, Caddy HTTPS), `bootstrap.sh` for a fresh Ubuntu host, config templates and role SQL. Runtime entrypoint gained `relays`, `social` and `identity` modes.
 - **Unit economics model.** `node scripts/economics.mjs` — break-even volume and lifespan under volume decay from measured gas. With defaults, a vault must attract about **$3,400/day of attributable volume** to fund its own work.
 - **Website.** Final direction chosen by the founder and shipped: PONS layout with a full glass treatment on a midnight-navy canvas, aqua actions and lilac secondaries, no orange. The landing page is the launchpad board, as on PONS. Two standalone explorations remain in `halo-design/` for reference.
 
@@ -65,7 +67,7 @@ Everything that can be built and verified on one machine without accounts, funds
 
 ## 6. Known limitations carried forward
 
-- Dev-stack demo agents cannot be driven by `dev:operator`; create an agent through the website (or `test/create-model-pipeline-agent.mjs`) to exercise the transparency suite.
+- Dev-stack demo agents cannot be driven by `dev:operator`; use `scripts/create-agent.mjs` (or the website) to create one that can.
 - Akash workspaces: the entrypoint still spawns the Docker-based social runner; running the browser worker natively inside a pod is unfinished.
 - Console API endpoint shapes are unverified against a live Akash account.
 - The proof establishes that an action is permitted, not that the model authored it; the docs and website copy now say exactly that.

@@ -1,0 +1,9 @@
+{
+  "deploymentFile": "deployment.json",
+  "host": "0.0.0.0",
+  "transparency": { "port": 8791, "directory": "/state/steps" },
+  "browser": { "port": 8795, "directory": "/state/frames", "retentionHours": 24, "maxStoredMb": 120 },
+  "allowedOrigins": ["https://halo.example.com", "https://www.halo.example.com"],
+  "maxViewers": 2000,
+  "fanout": { "connectionEnvironment": "HALO_RELAY_FANOUT_URL", "channelPrefix": "halo_relay" }
+}
