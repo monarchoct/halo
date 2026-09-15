@@ -21,7 +21,7 @@ const server = http.createServer(async (request, response) => {
     const bytes = Buffer.from(await upstream.arrayBuffer());
     response.writeHead(upstream.status, { 'content-type': upstream.headers.get('content-type') ?? 'application/octet-stream', 'content-length': String(bytes.length) });
     response.end(bytes);
-    console.log(`${request.method} ${request.url} → ${upstream.status} (${bytes.length} bytes)`);
+    console.log(`${request.method} ${request.url} → ${upstream.status} (${bytes.length} bytes)${upstream.status >= 400 ? ' ' + bytes.toString('utf8').slice(0, 300) : ''}`);
   } catch (error) { response.writeHead(502, { 'content-type': 'application/json' }); response.end(JSON.stringify({ error: 'upstream unavailable' })); console.log(`${request.method} ${request.url} → 502 ${error.message}`); }
 });
 server.listen(port, '127.0.0.1', () => console.log(`inference proxy http://127.0.0.1:${port} → ${target.origin}`));
