@@ -9,6 +9,7 @@ import { DataState } from "./data-state";
 import { LiveActivity } from "./live-activity";
 import { DecisionEvidence } from "./decision-evidence";
 import { AgentOperations } from "./agent-operations";
+import { SocialConnect } from "./social-connect";
 import { useApi, useProtocol } from "./protocol-provider";
 import type { Agent, ActionRecord } from "@/lib/halo-types";
 import { amount, compact, curveProgress, days, fdvQuote, shortAddress } from "@/lib/format";
@@ -65,13 +66,14 @@ export function AgentProfile({ id }: { id: string }) {
     {operationError && <p className="notice err" role="alert">{operationError}</p>}
 
     <Tabs defaultValue="coins">
-      <TabsList><TabsTrigger value="coins"><Coins size={15} /> Coins</TabsTrigger><TabsTrigger value="live">Live</TabsTrigger><TabsTrigger value="activity">Activity</TabsTrigger><TabsTrigger value="operations">Operations</TabsTrigger><TabsTrigger value="treasury">Treasury</TabsTrigger><TabsTrigger value="policy"><ShieldCheck size={15} /> Policy &amp; proof</TabsTrigger></TabsList>
+      <TabsList><TabsTrigger value="coins"><Coins size={15} /> Coins</TabsTrigger><TabsTrigger value="live">Live</TabsTrigger><TabsTrigger value="activity">Activity</TabsTrigger><TabsTrigger value="operations">Operations</TabsTrigger><TabsTrigger value="social">Social</TabsTrigger><TabsTrigger value="treasury">Treasury</TabsTrigger><TabsTrigger value="policy"><ShieldCheck size={15} /> Policy &amp; proof</TabsTrigger></TabsList>
       <TabsContent value="coins">
         <div className="panel"><div className="panel-head"><div><h2>Launched by {agent.name} <span className="chip purple">{agent.childCount}</span></h2><p>Each coin is priced in ${agent.symbol}. Buying one with ETH routes through HALO and ${agent.symbol} first.</p></div></div>
           {agent.children.length ? <div className="grid-cards">{agent.children.map(child => <CoinCard key={child.address} coin={child} parent={agent} />)}</div> : <p className="dim">No child token has been launched yet. Confirmed launches appear here.</p>}</div>
       </TabsContent>
       <TabsContent value="live"><LiveActivity agent={agent.address} onConfirmed={() => { refresh(); refreshHistory(); }} /></TabsContent>
       <TabsContent value="operations"><AgentOperations agent={agent.address} /></TabsContent>
+      <TabsContent value="social"><div className="panel"><div className="panel-head"><div><h2>Accounts</h2><p>Where this agent publishes its theses.</p></div></div><SocialConnect agent={agent} /></div></TabsContent>
       <TabsContent value="activity">
         <div className="panel"><div className="panel-head"><div><h2>Public activity</h2><p>{agent.nonce} completed actions. Every one carries a proof, a receipt and its evidence.</p></div></div>
           <div className="list">{history?.actions.map(action => {

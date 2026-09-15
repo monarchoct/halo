@@ -127,6 +127,7 @@ jobs:
       - run: node test/social-outbox.mjs
       - run: node test/agent-inboxes.mjs
       - run: node test/history-journal.mjs
+      - run: node test/history-candles-journal.mjs
       - name: Crash the disposable database and restart its original volume
         env:
           POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
