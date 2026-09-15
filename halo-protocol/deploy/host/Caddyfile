@@ -1,5 +1,25 @@
 # Public HTTPS edge for the HALO services. Certificates are issued automatically by Caddy.
 # The website itself is served from Cloudflare; these hostnames are what deployment.json points at.
+# The operator only ever talks to loopback or public HTTPS on 443 (sdk/safe-fetch.mjs), so its own IPFS peers
+# and the live relay are reached through these hostnames too, even from the same host. Keep every record here
+# DNS-only (no Cloudflare proxy): the relays stream, and the operator pins the resolved public address.
+(ipfs_peer) {
+	@authorized {
+		header Authorization "Bearer {$HALO_IPFS_PEER_TOKEN}"
+		path /api/v0/id /api/v0/block/put /api/v0/block/get /api/v0/pin/ls
+	}
+	reverse_proxy @authorized {args[0]}:5001
+	respond 403
+}
+ipfs-one.{$HALO_DOMAIN} {
+	import ipfs_peer ipfs
+}
+ipfs-two.{$HALO_DOMAIN} {
+	import ipfs_peer ipfs-two
+}
+ipfs-three.{$HALO_DOMAIN} {
+	import ipfs_peer ipfs-three
+}
 api.{$HALO_DOMAIN} {
 	reverse_proxy api:8787
 	header Cache-Control "public, max-age=5"

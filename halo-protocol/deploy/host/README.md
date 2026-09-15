@@ -14,7 +14,7 @@ bash bootstrap.sh halo.example.com
 
 Then `bash set-domain.sh <domain> /srv/halo` stamps the domain into `.env`, every `config/*.json` and `deploy/testnet/config.json`.
 
-DNS: `api`, `operations`, `live`, `screens`, `artifacts`, `inference` as A records to the host; Caddy issues certificates on first request. `inference.<domain>` is only a TLS front for the Akash llama.cpp lease (`HALO_INFERENCE_UPSTREAM` in `.env`); the operator's `publicModels` entry points at it and sends `HALO_INFERENCE_AUTH` (`Bearer <key>`, in `secrets/operator.env`).
+DNS: `api`, `operations`, `live`, `screens`, `artifacts`, `inference`, `ipfs-one`, `ipfs-two`, `ipfs-three` as **DNS-only** A records to the host (no Cloudflare proxy); Caddy issues certificates on first request. `inference.<domain>` is only a TLS front for the Akash llama.cpp lease (`HALO_INFERENCE_UPSTREAM` in `.env`); the operator's `publicModels` entry points at it and sends `HALO_INFERENCE_AUTH` (`Bearer <key>`, in `secrets/operator.env`). The operator never speaks plain HTTP off loopback, so its three IPFS peers (`ipfs-one/two/three.<domain>`, bearer-gated RPC fronts) and the live relay (`live.<domain>`) are also reached through Caddy; the shared token lives in `secrets/caddy.env` (`HALO_IPFS_PEER_TOKEN`) and `secrets/operator.env` (`HALO_IPFS_PEER_AUTH=Bearer <token>`).
 
 ## 2. Files
 
@@ -23,7 +23,7 @@ DNS: `api`, `operations`, `live`, `screens`, `artifacts`, `inference` as A recor
   compose.yaml   Caddyfile   .env          (from this directory)
   config/        api.json operations.json relays.json operator.json migrate.json deployment.json
                  postgres/init/roles.sql   (creates the restricted reader and the operator roles)
-  secrets/       postgres_admin  migrate.env  operations.env  relays.env  operator.env  operator.key  social/
+  secrets/       postgres_admin  migrate.env  operations.env  relays.env  operator.env  caddy.env  operator.key  social/
 ```
 
 Templates for every config are in `config/`. `deployment.json` comes from `scripts/deploy-public.mjs`. Secrets are files with mode 0600 owned by `halo`; the `*.env` files carry only database URLs and the X client id/secret, named exactly as the configs' `*Environment` fields.

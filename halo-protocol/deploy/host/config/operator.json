@@ -6,13 +6,16 @@
   "operatorKeyFile": "/run/secrets/operator.key",
   "ipfsPeers": [
     {
-      "apiUrl": "http://ipfs:5001"
+      "apiUrl": "https://ipfs-one.halo.example.com",
+      "authorizationEnvironment": "HALO_IPFS_PEER_AUTH"
     },
     {
-      "apiUrl": "http://ipfs-two:5001"
+      "apiUrl": "https://ipfs-two.halo.example.com",
+      "authorizationEnvironment": "HALO_IPFS_PEER_AUTH"
     },
     {
-      "apiUrl": "http://ipfs-three:5001"
+      "apiUrl": "https://ipfs-three.halo.example.com",
+      "authorizationEnvironment": "HALO_IPFS_PEER_AUTH"
     }
   ],
   "confirmations": 4,
@@ -20,7 +23,7 @@
   "minimumMarginWei": "1000000000000",
   "maxGasCostWei": "20000000000000",
   "scanIntervalSeconds": 30,
-  "transparencyEndpoint": "http://relays:8791",
+  "transparencyEndpoint": "https://live.halo.example.com",
   "database": {
     "connectionEnvironment": "HALO_OPERATOR_DATABASE_URL",
     "caFile": "postgres-ca.crt"

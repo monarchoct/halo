@@ -96,6 +96,7 @@ services:
     restart: unless-stopped
     ports: ["80:80", "443:443"]
     volumes: [./Caddyfile:/etc/caddy/Caddyfile:ro, caddy-data:/data, caddy-config:/config]
+    env_file: ./secrets/caddy.env
     environment:
       HALO_DOMAIN: "${HALO_DOMAIN:?Set the public domain}"
       HALO_INFERENCE_UPSTREAM: "${HALO_INFERENCE_UPSTREAM:-127.0.0.1:9}"
